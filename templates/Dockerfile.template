@@ -1,4 +1,4 @@
-FROM golang:{{GO_VERSION}}-bookworm
+FROM golang:{{GO_VERSION}}
 
 LABEL maintainer="swebench5g"
 LABEL description="SWE-Bench 5G - {{NF_TYPE}} {{INSTANCE_ID}}"
