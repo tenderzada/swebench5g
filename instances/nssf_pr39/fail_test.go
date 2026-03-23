@@ -1,45 +1,48 @@
 package processor
 
 import (
+	"os"
+	"strings"
 	"testing"
-	"time"
 )
 
-// TestExpiryField_Nil reproduces the exact buggy code path:
-// the code does `subscription.SubscriptionData.Expiry.IsZero()` without nil check.
-// On buggy version: PANIC (nil pointer dereference)
-// After fix: PASS (nil check added before .IsZero())
-func TestExpiryField_Nil(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("BUG: panic when Expiry is nil: %v\n"+
-				"Fix: add nil check before calling Expiry.IsZero()", r)
-		}
-	}()
-	// This is the EXACT buggy line from nssaiavailability_subscription.go:80
-	// Before fix: if !subscription.SubscriptionData.Expiry.IsZero() {
-	// After fix:  if subscription.SubscriptionData.Expiry != nil && !subscription.SubscriptionData.Expiry.IsZero() {
-	var expiry *time.Time // nil, simulating absent Expiry field
-	if !expiry.IsZero() { // direct call on nil pointer — panics on buggy version
-		t.Log("expiry is set and non-zero")
+// TestSubscriptionHasExpiryNilCheck uses diff-based intent testing.
+// Verifies that the source code checks Expiry != nil before calling .IsZero().
+//
+// Buggy version:  `if !subscription.SubscriptionData.Expiry.IsZero()` (no nil check)
+// Fixed version:  `if subscription.SubscriptionData.Expiry != nil && !...Expiry.IsZero()`
+func TestSubscriptionHasExpiryNilCheck(t *testing.T) {
+	data, err := os.ReadFile("nssaiavailability_subscription.go")
+	if err != nil {
+		t.Fatalf("cannot read nssaiavailability_subscription.go: %v", err)
 	}
-	t.Log("PASS: nil expiry handled without panic")
+	src := string(data)
+
+	// The fix adds: Expiry != nil &&
+	if !strings.Contains(src, "Expiry != nil") {
+		t.Fatal("BUG: nssaiavailability_subscription.go calls Expiry.IsZero() without nil check.\n" +
+			"Fix: add `subscription.SubscriptionData.Expiry != nil &&` before .IsZero()\n" +
+			"File: internal/sbi/processor/nssaiavailability_subscription.go\n" +
+			"Spec: 3GPP TS 29.531 - Expiry field is optional")
+	}
+	t.Log("PASS: source contains Expiry nil check")
 }
 
-// TestExpiryField_NilInStruct same bug but in struct context
-func TestExpiryField_NilInStruct(t *testing.T) {
-	type SubData struct {
-		Expiry *time.Time
+// TestExpiryNilCheckLinePattern verifies nil check and IsZero on same line
+func TestExpiryNilCheckLinePattern(t *testing.T) {
+	data, err := os.ReadFile("nssaiavailability_subscription.go")
+	if err != nil {
+		t.Fatalf("cannot read file: %v", err)
 	}
-	data := SubData{Expiry: nil}
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("BUG: panic on nil Expiry in struct: %v", r)
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for _, line := range lines {
+		if strings.Contains(line, "Expiry") && strings.Contains(line, "!= nil") {
+			found = true
+			break
 		}
-	}()
-	// Direct call without nil guard
-	if !data.Expiry.IsZero() {
-		t.Log("has expiry")
 	}
-	t.Log("PASS: nil Expiry in struct handled")
+	if !found {
+		t.Fatal("BUG: no line guards Expiry with nil check before use")
+	}
 }

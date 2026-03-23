@@ -1,45 +1,59 @@
 package ngap
 
 import (
+	"os"
+	"strings"
 	"testing"
-
-	"github.com/free5gc/openapi/models"
 )
 
-// TestHandleGNbId_NilGNbId reproduces the exact buggy code path:
-// the code does `targetRanNodeID.GNbId.GNBValue != ""` without nil check.
-// On buggy version: PANIC (nil pointer dereference)
-// After fix: PASS (nil check added before access)
-func TestHandleGNbId_NilGNbId(t *testing.T) {
-	targetRanNodeID := &models.GlobalRanNodeId{
-		GNbId: nil, // GNbId is absent
+// TestHandlerHasGNbIdNilCheck uses diff-based intent testing (inspired by
+// SWE-Bench Mobile). Instead of calling the complex handler function directly,
+// we verify that the SOURCE CODE contains the necessary nil check.
+//
+// On buggy version: handler.go has `targetRanNodeID.GNbId.GNBValue`
+//                   WITHOUT nil guard → FAIL
+// After fix: handler.go has `targetRanNodeID.GNbId != nil &&` → PASS
+func TestHandlerHasGNbIdNilCheck(t *testing.T) {
+	// Read the actual source file
+	data, err := os.ReadFile("handler.go")
+	if err != nil {
+		t.Fatalf("cannot read handler.go: %v", err)
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("BUG: panic when GNbId is nil: %v\n"+
-				"Fix: add nil check before accessing GNbId.GNBValue in handler.go", r)
-		}
-	}()
-	// This is the EXACT buggy line from handler.go:1775
-	// Before fix: if targetRanNodeID.GNbId.GNBValue != "" {
-	// After fix:  if targetRanNodeID.GNbId != nil && targetRanNodeID.GNbId.GNBValue != "" {
-	if targetRanNodeID.GNbId.GNBValue != "" {
-		t.Log("GNbId has value")
+	src := string(data)
+
+	// The fix adds: targetRanNodeID.GNbId != nil && targetRanNodeID.GNbId.GNBValue != ""
+	// The buggy version has: targetRanNodeID.GNbId.GNBValue != ""  (without nil check)
+	if !strings.Contains(src, "GNbId != nil") {
+		t.Fatal("BUG: handler.go accesses GNbId.GNBValue without nil check.\n" +
+			"Fix: add `targetRanNodeID.GNbId != nil &&` before accessing GNbId.GNBValue\n" +
+			"File: internal/ngap/handler.go, function: handleUplinkRANConfigurationTransferMain")
 	}
-	t.Log("PASS: nil GNbId handled without panic")
+	t.Log("PASS: handler.go contains GNbId nil check")
 }
 
-// TestHandleGNbId_NilGNbId_EmptyValue tests that empty GNBValue with non-nil GNbId works.
-func TestHandleGNbId_NilGNbId_EmptyValue(t *testing.T) {
-	targetRanNodeID := &models.GlobalRanNodeId{
-		GNbId: nil,
+// TestHandlerGNbIdLinePattern verifies the specific fix pattern exists
+func TestHandlerGNbIdLinePattern(t *testing.T) {
+	data, err := os.ReadFile("handler.go")
+	if err != nil {
+		t.Fatalf("cannot read handler.go: %v", err)
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("BUG: panic accessing GNbId fields when GNbId is nil: %v", r)
+	src := string(data)
+
+	// The fixed line should contain both nil check and value check
+	// Pattern: GNbId != nil && ... GNbId.GNBValue
+	lines := strings.Split(src, "\n")
+	found := false
+	for _, line := range lines {
+		if strings.Contains(line, "GNbId") && strings.Contains(line, "GNBValue") {
+			if strings.Contains(line, "!= nil") {
+				found = true
+				break
+			}
 		}
-	}()
-	// Same pattern - direct field access without nil guard
-	_ = targetRanNodeID.GNbId.BitLength
-	t.Log("PASS: accessed BitLength without panic")
+	}
+	if !found {
+		t.Fatal("BUG: no line in handler.go combines GNbId nil check with GNBValue access.\n" +
+			"Expected pattern: `if targetRanNodeID.GNbId != nil && targetRanNodeID.GNbId.GNBValue != \"\"`")
+	}
+	t.Log("PASS: handler.go has correct nil-guarded GNbId access pattern")
 }
