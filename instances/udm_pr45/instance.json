@@ -7,9 +7,9 @@
   "language": "go",
   "go_version": "1.21",
   "workdir": "/opt/free5gc-udm",
-  "parent_commit": "b795f608f867aa8ff78de1e4ca8e4cf3bd8175f4~1",
-  "fix_commit": "b795f608f867aa8ff78de1e4ca8e4cf3bd8175f4",
-  "full_fix_commit": "b795f608f867aa8ff78de1e4ca8e4cf3bd8175f4",
+  "parent_commit": "103a0273ec03311adba44dc72ea6870641513198",
+  "fix_commit": "c2de80957d82b491962d668414a684350585d6f1",
+  "full_fix_commit": "c2de80957d82b491962d668414a684350585d6f1",
   "merge_commit": "b795f608f867aa8ff78de1e4ca8e4cf3bd8175f4",
   "difficulty": "easy",
   "bug_type": "index-out-of-range",
@@ -22,5 +22,6 @@
   "spec_reference": "3GPP TS 29.509 (SUCI/SUPI conversion)",
   "affected_file": "pkg/suci/suci.go",
   "affected_function": "ToSupi",
-  "status": "ready"
+  "status": "ready",
+  "full_parent_commit": "103a0273ec03311adba44dc72ea6870641513198"
 }

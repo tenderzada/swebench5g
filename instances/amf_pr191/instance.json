@@ -1,0 +1,16 @@
+{
+  "instance_id": "amf_pr191",
+  "repo": "free5gc/amf",
+  "file": "internal/sbi/processor/ue_context.go",
+  "function": "CreateUEContextProcedure",
+  "receiver": "*Processor",
+  "fix_commit": "16a76bf39238e172a1219a4793c1e31537354e65",
+  "parent_commit": "b91554dc8fd41d2ac3c8eea0fbcbba098ff384da",
+  "merge_commit": "16a76bf39238e172a1219a4793c1e31537354e65",
+  "issue_url": "https://github.com/free5gc/free5gc/issues/756",
+  "pr_url": "https://github.com/free5gc/amf/pull/191",
+  "spec": "3GPP TS 29.518 (UE Context Create)",
+  "difficulty": "easy",
+  "bug_type": "index-out-of-range",
+  "description": "AMF panic when RestrictedRatList is empty. Code accesses RestrictedRatList[0] without checking the length of the slice."
+}

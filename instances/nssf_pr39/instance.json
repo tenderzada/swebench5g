@@ -7,9 +7,9 @@
   "language": "go",
   "go_version": "1.21",
   "workdir": "/opt/free5gc-nssf",
-  "parent_commit": "4555db4a274168fefcfb146e15ed717c735318cf~1",
-  "fix_commit": "4555db4a274168fefcfb146e15ed717c735318cf",
-  "full_fix_commit": "4555db4a274168fefcfb146e15ed717c735318cf",
+  "parent_commit": "3bb6990799f39ab3c682b81e5b18fe4d87c22c7f",
+  "fix_commit": "66fc727a894fa821fde14030346b18de69192204",
+  "full_fix_commit": "66fc727a894fa821fde14030346b18de69192204",
   "merge_commit": "4555db4a274168fefcfb146e15ed717c735318cf",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
@@ -22,5 +22,6 @@
   "spec_reference": "3GPP TS 29.531 (NSSF NSSAIAvailability, Expiry is optional)",
   "affected_file": "internal/sbi/processor/nssaiavailability_subscription.go",
   "affected_function": "NssaiAvailabilitySubscriptionCreate",
-  "status": "ready"
+  "status": "ready",
+  "full_parent_commit": "3bb6990799f39ab3c682b81e5b18fe4d87c22c7f"
 }

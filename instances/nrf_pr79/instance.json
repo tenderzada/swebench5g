@@ -1,0 +1,16 @@
+{
+  "instance_id": "nrf_pr79",
+  "repo": "free5gc/nrf",
+  "file": "internal/sbi/api_accesstoken.go",
+  "function": "HTTPAccessTokenRequest",
+  "receiver": "*Server",
+  "fix_commit": "23668103b02395731ae55eb4bc54a29396417d32",
+  "parent_commit": "afa5d77535dacf0bd93550489a14fd976bed57e9",
+  "merge_commit": "23668103b02395731ae55eb4bc54a29396417d32",
+  "issue_url": "https://github.com/free5gc/free5gc/issues/770",
+  "pr_url": "https://github.com/free5gc/nrf/pull/79",
+  "spec": "RFC 6749 (OAuth2), 3GPP TS 29.510 (NRF Access Token)",
+  "difficulty": "easy",
+  "bug_type": "crash",
+  "description": "NRF crashes on unknown form key in OAuth2 /oauth2/token endpoint. reflect.ValueOf.FieldByName(\"\").Set panics when the mapped field name is empty."
+}

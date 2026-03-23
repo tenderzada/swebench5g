@@ -7,7 +7,7 @@
   "language": "go",
   "go_version": "1.21",
   "workdir": "/opt/free5gc-amf",
-  "parent_commit": "a269d46ab530ab56e64fb271d5083305658f2a13~1",
+  "parent_commit": "ffb3347c901318812d1c4b16e90b233c63d3e05e",
   "fix_commit": "552d34e26c286a1d82efa6833954f7772a608b14",
   "full_fix_commit": "552d34e26c286a1d82efa6833954f7772a608b14",
   "merge_commit": "a269d46ab530ab56e64fb271d5083305658f2a13",
@@ -22,5 +22,6 @@
   "spec_reference": "3GPP TS 38.413 (NGAP UplinkRANConfigurationTransfer)",
   "affected_file": "internal/ngap/handler.go",
   "affected_function": "handleUplinkRANConfigurationTransferMain",
-  "status": "ready"
+  "status": "ready",
+  "full_parent_commit": "ffb3347c901318812d1c4b16e90b233c63d3e05e"
 }

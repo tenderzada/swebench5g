@@ -1,0 +1,16 @@
+{
+  "instance_id": "ausf_pr52",
+  "repo": "free5gc/ausf",
+  "file": "internal/sbi/processor/ue_authentication.go",
+  "function": "UeAuthPostRequestProcedure",
+  "receiver": "",
+  "fix_commit": "d415b7c0c7af9f3273867bea0579725f8194c531",
+  "parent_commit": "3b4cffa03e9f3e70a39cde8c31572b1193b28f29",
+  "merge_commit": "d415b7c0c7af9f3273867bea0579725f8194c531",
+  "issue_url": "https://github.com/free5gc/free5gc/issues/778",
+  "pr_url": "https://github.com/free5gc/ausf/pull/52",
+  "spec": "3GPP TS 29.509 (AUSF UE Authentication)",
+  "difficulty": "easy",
+  "bug_type": "nil-pointer-crash",
+  "description": "AUSF panic on nil interface conversion when SuciSupiMap doesn't exist during authentication resynchronization. GetSupiFromSuciSupiMap is called without checking existence first."
+}

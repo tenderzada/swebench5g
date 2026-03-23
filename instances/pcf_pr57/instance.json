@@ -7,7 +7,7 @@
   "language": "go",
   "go_version": "1.21",
   "workdir": "/opt/free5gc-pcf",
-  "parent_commit": "ec97ca9ee938a9a4b18d495e78df88b9c054b55b~1",
+  "parent_commit": "ff630a9d7ed4c10b70df4ddecece86e9f28c4291",
   "fix_commit": "679e0256678f351ce53426e3eba40747966569d5",
   "full_fix_commit": "679e0256678f351ce53426e3eba40747966569d5",
   "merge_commit": "ec97ca9ee938a9a4b18d495e78df88b9c054b55b",
@@ -22,5 +22,6 @@
   "spec_reference": "3GPP TS 29.507 (AM Policy Control)",
   "affected_file": "internal/sbi/processor/ampolicy.go",
   "affected_function": "HandleDeletePoliciesPolAssoId",
-  "status": "ready"
+  "status": "ready",
+  "full_parent_commit": "ff630a9d7ed4c10b70df4ddecece86e9f28c4291"
 }

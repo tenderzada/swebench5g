@@ -1,0 +1,16 @@
+{
+  "instance_id": "smf_pr125",
+  "repo": "free5gc/smf",
+  "file": "internal/sbi/processor/association.go",
+  "function": "requestAMFToReleasePDUResources",
+  "receiver": "*Processor",
+  "fix_commit": "b8bce67515a9cc0ba00e14ebfbec94a822acacd4",
+  "parent_commit": "ffad3284b298bea0800d89216f25ea2ceaba4367",
+  "merge_commit": "43a8cbe38ffd4ce5aaf47b0605125a029cff23a5",
+  "issue_url": "https://github.com/free5gc/smf/issues/121",
+  "pr_url": "https://github.com/free5gc/smf/pull/125",
+  "spec": "3GPP TS 29.518 (Namf_Communication N1N2MessageTransfer)",
+  "difficulty": "easy",
+  "bug_type": "nil-pointer-crash",
+  "description": "SMF segfault when calling N1N2MessageTransfer after gNB removed. statusCode is nil, but code dereferences it with switch *statusCode."
+}

@@ -7,9 +7,9 @@
   "language": "go",
   "go_version": "1.21",
   "workdir": "/opt/free5gc-amf",
-  "parent_commit": "9458f7952b43a3ff4ead5db58e3a337cbbac9cd7~1",
-  "fix_commit": "9458f7952b43a3ff4ead5db58e3a337cbbac9cd7",
-  "full_fix_commit": "9458f7952b43a3ff4ead5db58e3a337cbbac9cd7",
+  "parent_commit": "21aa437ddbe93181c5820fd8eb5f5ecf594a2866",
+  "fix_commit": "de6f19944566c48f13e65fb6b36012a229912456",
+  "full_fix_commit": "de6f19944566c48f13e65fb6b36012a229912456",
   "merge_commit": "9458f7952b43a3ff4ead5db58e3a337cbbac9cd7",
   "difficulty": "easy",
   "bug_type": "crash",
@@ -22,5 +22,6 @@
   "spec_reference": "3GPP TS 24.501 (NAS PDU Security Header)",
   "affected_file": "internal/nas/nas_security/security.go",
   "affected_function": "DecodePlainNasNoIntegrityCheck",
-  "status": "ready"
+  "status": "ready",
+  "full_parent_commit": "21aa437ddbe93181c5820fd8eb5f5ecf594a2866"
 }
