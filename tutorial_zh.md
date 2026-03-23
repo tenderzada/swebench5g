@@ -23,8 +23,18 @@ SWE-Bench 5G 是一个用于**评估 AI 编程 Agent 在 5G 核心网软件工�
 | 项目 | 特点 | 我们借鉴了什么 |
 |------|------|---------------|
 | [SWE-Bench](https://arxiv.org/abs/2310.06770) | Python bug 修复，2294 个实例 | 任务格式：issue → patch → fail-to-pass 测试 |
-| [SWE-Bench Mobile](https://arxiv.org/abs/2602.09540) | iOS 开发，多模态输入（PRD+Figma） | 多模态思路：3GPP 规范 + 信令流程图 |
+| [SWE-Bench Mobile](https://arxiv.org/abs/2602.09540) | iOS 开发，多模态输入（PRD+Figma） | 多模态思路 + **diff-based intent test** |
 | [BeyondSWE](https://arxiv.org/abs/2603.03194) | 500 实例，Docker 镜像打包 | Docker 环境：每个 bug 一个完整的可复现环境 |
+
+### 1.4 当前规模
+
+| 指标 | 数值 |
+|------|------|
+| 总实例数 | **21**（含 1 个 pilot + 20 个新实例） |
+| 已验证 | 2（pilot_pcf_879, amf_pr161） |
+| 覆盖 NF | 7 个（AMF, PCF, SMF, UDM, NRF, NSSF, AUSF） |
+| 难度分布 | 19 easy + 2 medium |
+| 候选池 | 280 个（来自 16 个子仓库） |
 
 ---
 
@@ -49,19 +59,77 @@ E（评估）：自动化测试套件
 | PASS_TO_PASS | 已有测试 | PASS | PASS | 确保修复不引入回归 |
 | FAIL_TO_PASS | 新增测试 | FAIL | PASS | 验证 bug 确实被修复 |
 
-### 2.3 判定标准
+### 2.3 两种测试策略
+
+在实践中，我们发现 FAIL_TO_PASS 测试需要根据 bug 的可测试性选择不同策略：
+
+#### 策略 A：直接函数调用（首选）
+
+直接调用有 bug 的函数，传入触发 bug 的输入。
+
+```go
+// 适用于：函数可以用简单参数直接调用
+func TestProvisioningOfTrafficRoutingInfo_NilRouteReq(t *testing.T) {
+    defer func() {
+        if r := recover(); r != nil {
+            t.Fatalf("BUG: panic: %v", r)
+        }
+    }()
+    // 直接调用有 bug 的函数
+    result := provisioningOfTrafficRoutingInfo(smPolicy, "app1", nil, "")
+    _ = result
+}
+```
+
+**优点**：直接验证函数行为。修复函数后，测试自动通过。
+**适用**：pilot_pcf_879、amf_pr118、amf_pr157 等。
+
+#### 策略 B：Diff-Based Intent Test（复杂函数的备选）
+
+灵感来自 SWE-Bench Mobile。当 buggy 函数依赖复杂上下文（NGAP 连接、数据库等）无法直接调用时，**检查源代码中是否包含修复模式**。
+
+```go
+// 适用于：函数依赖太多上下文，无法在单元测试中调用
+func TestHandlerHasGNbIdNilCheck(t *testing.T) {
+    data, err := os.ReadFile("handler.go")
+    if err != nil {
+        t.Fatalf("cannot read handler.go: %v", err)
+    }
+    src := string(data)
+    // 在 buggy 版本中，这个模式不存在 → FAIL
+    // 修复后，这个模式存在 → PASS
+    if !strings.Contains(src, "GNbId != nil") {
+        t.Fatal("BUG: handler.go accesses GNbId.GNBValue without nil check")
+    }
+}
+```
+
+**优点**：不需要复杂的 mock。Agent 必须修改源码才能通过。
+**适用**：amf_pr161、nssf_pr39、udm_pr45 等。
+
+#### 如何选择？
+
+```
+能直接调用有 bug 的函数？
+  ├── 是 → 策略 A（直接函数调用）
+  └── 否 → 函数需要复杂上下文？
+        ├── 是 → 策略 B（Diff-Based Intent Test）
+        └── 否 → 尝试 mock 最小依赖后用策略 A
+```
+
+### 2.4 判定标准
 
 一个任务被判定为 **Resolved（已解决）**，当且仅当：
 - 所有 FAIL_TO_PASS 测试通过（bug 被修复）
 - 所有 PASS_TO_PASS 测试仍然通过（没有回归）
 
-### 2.4 Docker 镜像结构
+### 2.5 Docker 镜像结构
 
 每个任务被打包成一个 Docker 镜像：
 
 ```
 镜像内部
-├── /opt/free5gc-pcf/              ← NF 源码（停在有 bug 的版本）
+├── /opt/free5gc-<nf>/             ← NF 源码（停在有 bug 的版本）
 │   ├── internal/sbi/processor/    ← bug 所在位置
 │   ├── go.mod, go.sum             ← 依赖（已预下载）
 │   └── .git/                      ← 完整 git 历史
@@ -79,7 +147,7 @@ E（评估）：自动化测试套件
 
 ### 3.1 环境要求
 
-- Docker 20.10+
+- Docker 20.10+（需要已拉取 `golang:1.25-bookworm` 镜像）
 - Python 3.8+（用于挖掘脚本和评估 harness）
 - Git
 
@@ -113,7 +181,17 @@ Step 2: 触发 bug 的测试 → FAIL（bug 存在）     ✅
 Step 3: 应用修复后 → ALL PASS（修复有效）       ✅
 ```
 
-### 3.4 手动体验 Agent 视角
+### 3.4 构建更多实例（模板化方式）
+
+```bash
+# 构建 AMF 实例
+bash scripts/build_instance.sh instances/amf_pr161/instance.json
+
+# 验证
+bash scripts/validate_instance.sh instances/amf_pr161/instance.json
+```
+
+### 3.5 手动体验 Agent 视角
 
 模拟 AI Agent 的工作流程：
 
@@ -190,42 +268,43 @@ python scripts/mine_issues.py --repo amf smf pcf upf --output candidates.json
 
 ### 4.3 创建新的任务实例
 
-以 AMF Issue #713 为例：
-
 ```bash
 # 1. 创建实例目录
 mkdir -p instances/amf_pr179
 
-# 2. 编写配置文件
-# instances/amf_pr179/instance.json
-{
-  "instance_id": "amf_pr179",
-  "nf_type": "AMF",
-  "repo": "free5gc/amf",
-  "parent_commit": "xxxx",        ← bug 版本的 commit
-  "fix_commit": "yyyy",            ← 修复后的 commit
-  "go_version": "1.21",
-  "test_package_dir": "internal/nas",
-  "test_package_path": "internal/nas",
-  "difficulty": "easy",
-  ...
-}
-
-# 3. 编写任务描述
-# instances/amf_pr179/problem_statement.md
-
-# 4. 编写测试
-# instances/amf_pr179/existing_test.go  ← 验证已有功能正常
-# instances/amf_pr179/fail_test.go      ← 触发 bug 的测试
+# 2. 编写配置文件 instances/amf_pr179/instance.json
+# 3. 编写任务描述 instances/amf_pr179/problem_statement.md
+# 4. 编写测试（选择策略 A 或 B）
+#    instances/amf_pr179/existing_test.go
+#    instances/amf_pr179/fail_test.go
 
 # 5. 构建并验证
 bash scripts/build_instance.sh instances/amf_pr179/instance.json
 bash scripts/validate_instance.sh instances/amf_pr179/instance.json
 ```
 
+也可以用批量生成脚本：
+
+```bash
+# 在 scripts/generate_instances.py 中添加任务定义，然后运行
+python scripts/generate_instances.py
+```
+
 ### 4.4 测试编写指南
 
 **fail_test.go（最关键）：**
+
+核心原则：**测试必须执行 buggy 代码路径本身，不能自己写安全逻辑。**
+
+```go
+// ✅ 正确：复现 buggy 代码的访问模式
+if targetRanNodeID.GNbId.GNBValue != "" {  // 会 panic
+
+// ❌ 错误：自己写了安全检查，永远不会 panic
+if gnbId != nil && gnbId.GNBValue != "" {  // 不会 panic
+```
+
+**策略 A 模板（直接函数调用）：**
 
 ```go
 package 目标包名
@@ -233,17 +312,36 @@ package 目标包名
 import "testing"
 
 func TestXxx_触发Bug的场景(t *testing.T) {
-    // 构造最小化的输入，能触发 bug
-    // 使用 defer recover 捕获 panic
     defer func() {
         if r := recover(); r != nil {
             t.Fatalf("BUG PRESENT: %v", r)
         }
     }()
-
-    // 调用有 bug 的函数
+    // 直接调用有 bug 的函数
     result := buggyFunction(恶意输入)
     _ = result
+}
+```
+
+**策略 B 模板（Diff-Based Intent Test）：**
+
+```go
+package 目标包名
+
+import (
+    "os"
+    "strings"
+    "testing"
+)
+
+func TestSourceHasFixPattern(t *testing.T) {
+    data, err := os.ReadFile("有bug的文件.go")
+    if err != nil {
+        t.Fatalf("cannot read file: %v", err)
+    }
+    if !strings.Contains(string(data), "修复后应存在的代码模式") {
+        t.Fatal("BUG: source code missing fix pattern")
+    }
 }
 ```
 
@@ -253,10 +351,6 @@ func TestXxx_触发Bug的场景(t *testing.T) {
 func TestXxx_正常场景(t *testing.T) {
     // 验证正常输入下函数行为正确
     // 这些测试在 buggy 版本上也必须 PASS
-    result := buggyFunction(正常输入)
-    if result != expected {
-        t.Fatalf("expected %v, got %v", expected, result)
-    }
 }
 ```
 
@@ -367,29 +461,44 @@ Total: 10 | Resolved: 4 (40.0%)
 ```
 swebench5g/
 │
-├── pilot_pcf_879/              ← 已验证的 pilot 任务
+├── pilot_pcf_879/              ← 已验证的 pilot 任务（独立结构）
 │   ├── Dockerfile
 │   ├── problem_statement.md
 │   ├── task_metadata.json
 │   ├── test-suite/
-│   │   ├── existing_test.go
-│   │   ├── fail_test.go
-│   │   └── run_tests.sh
 │   └── scripts/
 │
-├── instances/                  ← 新任务实例（模板化构建）
-│   └── amf_pr179/
-│       ├── instance.json
-│       └── problem_statement.md
+├── instances/                  ← 所有任务实例（模板化构建）
+│   ├── amf_pr118/              ← 每个实例包含 4 个文件
+│   ├── amf_pr157/
+│   ├── amf_pr161/              ← 已验证
+│   ├── amf_pr181/
+│   ├── amf_pr191/
+│   ├── amf_pr192/              ← medium 难度
+│   ├── amf_pr196/
+│   ├── ausf_pr52/
+│   ├── nrf_pr78/
+│   ├── nrf_pr79/
+│   ├── nssf_pr39/
+│   ├── nssf_pr44/
+│   ├── pcf_pr57/
+│   ├── pcf_pr62/
+│   ├── smf_pr125/
+│   ├── smf_pr128/
+│   ├── smf_pr189/              ← medium 难度
+│   ├── udm_pr45/
+│   ├── udm_pr66/
+│   └── udm_pr77/
 │
 ├── templates/                  ← Docker/测试模板
 │   ├── Dockerfile.template
 │   └── run_tests.sh.template
 │
 ├── scripts/                    ← 工具脚本
-│   ├── mine_issues.py          ← Issue 挖掘
+│   ├── mine_issues.py          ← Issue 挖掘（已挖出 280 个候选）
+│   ├── generate_instances.py   ← 批量生成实例
 │   ├── build_instance.sh       ← 构建镜像
-│   └── validate_instance.sh    ← 验证镜像
+│   └── validate_instance.sh    ← 三步验证
 │
 ├── eval/                       ← 评估框架
 │   └── run_evaluation.py
@@ -399,11 +508,13 @@ swebench5g/
 │   ├── README.md
 │   └── upload_to_hf.py
 │
-├── paper/                      ← 论文
+├── paper/                      ← NeurIPS D&B 论文
 │   ├── main.tex
 │   └── references.bib
 │
-└── ROADMAP.md                  ← 项目路线图
+├── candidates.json             ← 280 个候选（mine_issues.py 输出）
+├── ROADMAP.md                  ← 项目路线图
+└── tutorial_zh.md              ← 本文件
 ```
 
 ---
@@ -483,11 +594,41 @@ ENV GOPROXY=https://goproxy.cn,direct
 
 # 源码在宿主机 clone（利用宿主机代理/镜像）
 # build_instance.sh 会自动处理
+
+# 基础镜像固定为 golang:1.25-bookworm（只需拉取一次）
 ```
+
+### Q: Docker build 时找不到 golang 镜像？
+
+模板已固定使用 `golang:1.25-bookworm`。如果服务器之前没拉过：
+```bash
+docker pull golang:1.25-bookworm
+```
+之后所有实例都复用同一个基础镜像。
 
 ### Q: 测试为什么要放在同一个 Go 包内？
 
 Go 的未导出函数（小写字母开头）只能在同一个包内访问。由于 free5GC 的很多内部函数是未导出的，测试必须声明为 `package processor`（而不是 `package processor_test`）才能直接调用。
+
+### Q: fail_test 在 buggy 版本上也 PASS 了？
+
+这说明测试**没有真正复现 bug**。常见错误：
+
+```go
+// ❌ 测试自己写了安全逻辑（永远不会 panic）
+if ptr != nil && ptr.Field != "" { ... }
+
+// ✅ 应该复现 buggy 代码的不安全访问
+if ptr.Field != "" { ... }  // ptr 为 nil 时会 panic
+```
+
+如果函数太复杂无法直接调用，使用 **策略 B（Diff-Based Intent Test）**。
+
+### Q: validate 的 Step 3 失败（apply fix 后 fail test 仍然 FAIL）？
+
+可能原因：
+1. 测试是模拟代码（不调用实际函数），cherry-pick 不会改变测试逻辑
+2. 解决方案：改用 Diff-Based Intent Test（检查源码而非执行函数）
 
 ### Q: 如何判断一个 issue 适不适合做 task instance？
 
