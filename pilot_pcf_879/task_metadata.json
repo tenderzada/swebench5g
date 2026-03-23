@@ -1,0 +1,27 @@
+{
+  "task_id": "free5gc_pcf_879",
+  "project": "free5gc/pcf",
+  "issue_url": "https://github.com/free5gc/free5gc/issues/879",
+  "fix_pr_url": "https://github.com/free5gc/pcf/pull/65",
+  "base_commit": "df535f5",
+  "fix_commit": "508d70b",
+  "fix_patch_commits": [
+    "581143c78a532506f89d7c9e51f8e5078dc23f56",
+    "7c472a78542bddfc3afb1195207db618d927163e"
+  ],
+  "difficulty": "easy",
+  "category": "nil-pointer-dereference",
+  "affected_nf": "PCF",
+  "affected_files": [
+    "internal/sbi/processor/policyauthorization.go"
+  ],
+  "affected_function": "provisioningOfTrafficRoutingInfo",
+  "language": "go",
+  "spec_reference": "3GPP TS 29.514 (suppFeat bit 1: InfluenceOnTrafficRouting)",
+  "test_counts": {
+    "existing_tests": 2,
+    "fail_to_pass_tests": 3,
+    "total": 5
+  },
+  "docker_image": "swebench5g/free5gc:pcf_issue_879"
+}
