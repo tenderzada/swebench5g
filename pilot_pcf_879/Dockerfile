@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
+# Use Chinese Go proxy to avoid timeout on proxy.golang.org
+ENV GOPROXY=https://goproxy.cn,direct
+
 # Set workspace
 WORKDIR /opt/free5gc-pcf
 
