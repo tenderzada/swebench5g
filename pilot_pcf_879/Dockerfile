@@ -18,11 +18,11 @@ ENV GOPROXY=https://goproxy.cn,direct
 # Set workspace
 WORKDIR /opt/free5gc-pcf
 
-# Clone PCF repo at the BUGGY commit (before PR #65 fix)
-# Use ghproxy mirror to avoid GitHub connectivity issues in China
-RUN git clone https://ghproxy.com/https://github.com/free5gc/pcf.git . && \
-    git remote set-url origin https://github.com/free5gc/pcf.git && \
-    git checkout df535f5
+# Copy pre-cloned PCF source (cloned on host to avoid network issues in Docker)
+COPY pcf-src/ .
+
+# Ensure git repo is intact and at the buggy commit
+RUN git checkout df535f5
 
 # Download Go dependencies
 RUN go mod download
