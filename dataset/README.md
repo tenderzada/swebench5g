@@ -97,7 +97,7 @@ This design follows the [BeyondSWE](https://arxiv.org/abs/2603.03194) approach o
 ```python
 from datasets import load_dataset
 
-ds = load_dataset("tianjiang/SWEBench5G", split="test")
+ds = load_dataset("tenderzada/SWEBench5G", split="test")
 print(ds[0]["problem_statement"])
 ```
 
@@ -145,9 +145,9 @@ This benchmark is under active development. We are expanding the dataset by mini
 ```bibtex
 @misc{swebench5g2026,
   title={SWE-Bench 5G: Evaluating AI Coding Agents on 5G Core Network Engineering Tasks},
-  author={tianjiang},
+  author={tenderzada},
   year={2026},
-  url={https://huggingface.co/datasets/tianjiang/SWEBench5G}
+  url={https://huggingface.co/datasets/tenderzada/SWEBench5G}
 }
 ```
 
