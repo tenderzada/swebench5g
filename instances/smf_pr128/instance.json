@@ -1,0 +1,14 @@
+{
+  "instance_id": "smf_pr128",
+  "nf": "SMF",
+  "repo": "free5gc/smf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 128,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/610",
+  "pr_url": "https://github.com/free5gc/smf/pull/128",
+  "spec": "3GPP TS 29.502",
+  "difficulty": "easy",
+  "bug_type": "logic-error",
+  "description": "Pointer comparison logic error - the code compares pointers instead of dereferenced values, causing incorrect equality checks and wrong behavior."
+}

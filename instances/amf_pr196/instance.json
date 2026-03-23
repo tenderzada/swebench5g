@@ -1,0 +1,14 @@
+{
+  "instance_id": "amf_pr196",
+  "nf": "AMF",
+  "repo": "free5gc/amf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 196,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/795",
+  "pr_url": "https://github.com/free5gc/amf/pull/196",
+  "spec": "3GPP TS 24.501",
+  "difficulty": "easy",
+  "bug_type": "missing-validation",
+  "description": "Missing bounds check for PDU session PSI bitmap in NAS PDU Session Status IE. A malformed or oversized bitmap can cause an index out of range panic."
+}

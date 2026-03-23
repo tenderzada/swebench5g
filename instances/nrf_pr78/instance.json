@@ -1,0 +1,14 @@
+{
+  "instance_id": "nrf_pr78",
+  "nf": "NRF",
+  "repo": "free5gc/nrf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 78,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/757",
+  "pr_url": "https://github.com/free5gc/nrf/pull/78",
+  "spec": "3GPP TS 29.510",
+  "difficulty": "easy",
+  "bug_type": "nil-pointer-crash",
+  "description": "Nil pointer crash when NF discovery query parameters are missing or invalid. The NRF does not validate query parameters before dereferencing them."
+}

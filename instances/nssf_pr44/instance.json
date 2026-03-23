@@ -1,0 +1,14 @@
+{
+  "instance_id": "nssf_pr44",
+  "nf": "NSSF",
+  "repo": "free5gc/nssf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 44,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/764",
+  "pr_url": "https://github.com/free5gc/nssf/pull/44",
+  "spec": "3GPP TS 29.531",
+  "difficulty": "easy",
+  "bug_type": "nil-pointer-crash",
+  "description": "Nil pointer panic in nssaiavailability subscription handling when optional fields are absent. The code dereferences optional pointer fields without checking for nil."
+}

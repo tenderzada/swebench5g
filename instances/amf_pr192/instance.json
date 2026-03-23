@@ -1,0 +1,14 @@
+{
+  "instance_id": "amf_pr192",
+  "nf": "AMF",
+  "repo": "free5gc/amf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 192,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/768",
+  "pr_url": "https://github.com/free5gc/amf/pull/192",
+  "spec": "3GPP TS 38.413",
+  "difficulty": "medium",
+  "bug_type": "crash",
+  "description": "AMF crashes when the first NGAP message from a gNB is not NGSetupRequest. No validation that NGSetup has been completed before processing other NGAP messages."
+}

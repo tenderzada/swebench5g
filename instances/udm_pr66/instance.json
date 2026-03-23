@@ -1,0 +1,14 @@
+{
+  "instance_id": "udm_pr66",
+  "nf": "UDM",
+  "repo": "free5gc/udm",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 66,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/701",
+  "pr_url": "https://github.com/free5gc/udm/pull/66",
+  "spec": "3GPP TS 29.503",
+  "difficulty": "easy",
+  "bug_type": "missing-validation",
+  "description": "UDM incorrectly returns HTTP 500 instead of 404 when single-nssai is missing from subscription data. Missing validation for absent NSSAI data."
+}

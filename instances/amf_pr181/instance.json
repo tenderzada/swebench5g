@@ -1,0 +1,14 @@
+{
+  "instance_id": "amf_pr181",
+  "nf": "AMF",
+  "repo": "free5gc/amf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 181,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/722",
+  "pr_url": "https://github.com/free5gc/amf/pull/181",
+  "spec": "3GPP TS 29.503",
+  "difficulty": "easy",
+  "bug_type": "logic-error",
+  "description": "The AMF uses an incorrect service name when calling UDM (Nudm), causing service discovery to fail. The service name string does not match the 3GPP-defined Nudm service names in TS 29.503."
+}

@@ -1,0 +1,14 @@
+{
+  "instance_id": "smf_pr189",
+  "nf": "SMF",
+  "repo": "free5gc/smf",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 189,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/814",
+  "pr_url": "https://github.com/free5gc/smf/pull/189",
+  "spec": "3GPP TS 29.244",
+  "difficulty": "medium",
+  "bug_type": "nil-pointer-crash",
+  "description": "SMF crashes on PFCP messages missing mandatory IEs (Information Elements). Multiple PFCP handlers dereference IE pointers without nil checks, causing nil pointer panics."
+}

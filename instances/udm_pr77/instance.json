@@ -1,0 +1,14 @@
+{
+  "instance_id": "udm_pr77",
+  "nf": "UDM",
+  "repo": "free5gc/udm",
+  "base_commit": "PLACEHOLDER",
+  "fix_commit": "PLACEHOLDER",
+  "pr_number": 77,
+  "issue_url": "https://github.com/free5gc/free5gc/issues/810",
+  "pr_url": "https://github.com/free5gc/udm/pull/77",
+  "spec": "3GPP TS 29.510",
+  "difficulty": "easy",
+  "bug_type": "nil-pointer-crash",
+  "description": "Nil pointer dereference in SendSearchNFInstances when the NRF response is nil or unexpected. The UDM does not check for nil before accessing the response body."
+}
