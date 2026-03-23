@@ -1,0 +1,107 @@
+#!/bin/bash
+# run_tests.sh — SWE-Bench 5G test runner for {{INSTANCE_ID}}
+
+set -e
+
+SRC_DIR="/opt/{{WORKDIR_NAME}}"
+TEST_DIR="/opt/test-suite"
+TARGET_PKG_DIR="${SRC_DIR}/{{TEST_PACKAGE_DIR}}"
+
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+MODE="${1:-all}"
+
+echo "============================================"
+echo " SWE-Bench 5G — {{INSTANCE_ID}}"
+echo " Mode: ${MODE}"
+echo "============================================"
+echo ""
+
+copy_tests() {
+    local test_type=$1
+    if [ "$test_type" == "existing" ] || [ "$test_type" == "all" ]; then
+        cp "${TEST_DIR}/existing_test.go" "${TARGET_PKG_DIR}/swebench_existing_test.go" 2>/dev/null || true
+    fi
+    if [ "$test_type" == "fail" ] || [ "$test_type" == "all" ]; then
+        cp "${TEST_DIR}/fail_test.go" "${TARGET_PKG_DIR}/swebench_fail_test.go" 2>/dev/null || true
+    fi
+}
+
+cleanup_tests() {
+    rm -f "${TARGET_PKG_DIR}/swebench_existing_test.go"
+    rm -f "${TARGET_PKG_DIR}/swebench_fail_test.go"
+}
+
+# Ensure cleanup on exit
+trap cleanup_tests EXIT
+
+run_existing() {
+    echo -e "${YELLOW}--- Running EXISTING tests (should PASS) ---${NC}"
+    echo ""
+    copy_tests "existing"
+    cd "${SRC_DIR}"
+    if go test -v -run "{{EXISTING_TEST_PATTERN}}" ./{{TEST_PACKAGE_PATH}}/ 2>&1; then
+        echo ""
+        echo -e "${GREEN}EXISTING tests: ALL PASSED${NC}"
+        return 0
+    else
+        echo ""
+        echo -e "${RED}EXISTING tests: FAILED${NC}"
+        return 1
+    fi
+}
+
+run_fail() {
+    echo -e "${YELLOW}--- Running FAIL-TO-PASS tests ---${NC}"
+    echo -e "${YELLOW}    (Should FAIL on buggy version, PASS after fix)${NC}"
+    echo ""
+    copy_tests "fail"
+    cd "${SRC_DIR}"
+    if go test -v -run "{{FAIL_TEST_PATTERN}}" ./{{TEST_PACKAGE_PATH}}/ 2>&1; then
+        echo ""
+        echo -e "${GREEN}FAIL-TO-PASS tests: ALL PASSED (bug is fixed!)${NC}"
+        return 0
+    else
+        echo ""
+        echo -e "${RED}FAIL-TO-PASS tests: FAILED (bug still present)${NC}"
+        return 1
+    fi
+}
+
+case "$MODE" in
+    existing)
+        run_existing
+        ;;
+    fail)
+        run_fail
+        ;;
+    all)
+        run_existing
+        E=$?
+        echo ""
+        echo "--------------------------------------------"
+        echo ""
+        run_fail
+        F=$?
+        echo ""
+        echo "============================================"
+        echo " SUMMARY"
+        echo "============================================"
+        if [ $E -eq 0 ] && [ $F -eq 0 ]; then
+            echo -e "${GREEN} ALL TESTS PASSED${NC}"
+        elif [ $E -eq 0 ] && [ $F -ne 0 ]; then
+            echo -e "${RED} Existing: PASS | Fail-to-pass: FAIL${NC}"
+        else
+            echo -e "${RED} Some tests failed${NC}"
+        fi
+        echo "============================================"
+        exit $(( E + F ))
+        ;;
+    *)
+        echo "Usage: $0 {existing|fail|all}"
+        exit 1
+        ;;
+esac

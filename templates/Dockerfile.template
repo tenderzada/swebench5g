@@ -1,0 +1,40 @@
+FROM golang:{{GO_VERSION}}-bookworm
+
+LABEL maintainer="swebench5g"
+LABEL description="SWE-Bench 5G - {{NF_TYPE}} {{INSTANCE_ID}}"
+LABEL task.instance_id="{{INSTANCE_ID}}"
+LABEL task.nf_type="{{NF_TYPE}}"
+LABEL task.difficulty="{{DIFFICULTY}}"
+LABEL task.repo="{{REPO}}"
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use Chinese Go proxy (remove this line if building outside China)
+ENV GOPROXY=https://goproxy.cn,direct
+
+WORKDIR /opt/{{WORKDIR_NAME}}
+
+# Copy pre-cloned source (cloned on host by build_instance.sh)
+COPY src/ .
+
+# Checkout buggy commit
+RUN git checkout {{PARENT_COMMIT}}
+
+# Download Go dependencies and compile
+RUN go mod download && go build ./...
+
+# Copy test suite and task description
+COPY test-suite/ /opt/test-suite/
+COPY task/ /opt/task/
+
+# Make scripts executable
+RUN chmod +x /opt/test-suite/*.sh
+
+WORKDIR /opt/{{WORKDIR_NAME}}
+
+CMD ["/bin/bash"]
