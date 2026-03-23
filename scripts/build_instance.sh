@@ -21,7 +21,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-CONFIG="$1"
+CONFIG="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 TEMPLATE_DIR="${PROJECT_ROOT}/templates"
@@ -44,7 +44,7 @@ EXISTING_TEST_PATTERN=$(parse existing_test_pattern "Test")
 FAIL_TEST_PATTERN=$(parse fail_test_pattern "Test")
 IMAGE_NAME="swebench5g/free5gc:${INSTANCE_ID}"
 
-INSTANCE_DIR="$(dirname "$CONFIG")"
+INSTANCE_DIR="$(cd "$(dirname "$CONFIG")" && pwd)"
 
 echo "============================================"
 echo " Building: ${INSTANCE_ID}"

@@ -11,11 +11,12 @@
 
 set -e
 
-CONFIG="$1"
-if [ -z "$CONFIG" ]; then
+if [ -z "$1" ]; then
     echo "Usage: $0 <instance.json>"
     exit 1
 fi
+
+CONFIG="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 
 parse() { python3 -c "import json,sys; d=json.load(open('$CONFIG')); print(d.get('$1','$2'))"; }
 
