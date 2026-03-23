@@ -3,12 +3,20 @@
   "nf": "SMF",
   "repo": "free5gc/smf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "54df739d731c7a3cd812bdbdd1a8f0a08fa2a31d",
   "pr_number": 128,
   "issue_url": "https://github.com/free5gc/free5gc/issues/610",
   "pr_url": "https://github.com/free5gc/smf/pull/128",
   "spec": "3GPP TS 29.502",
   "difficulty": "easy",
   "bug_type": "logic-error",
-  "description": "Pointer comparison logic error - the code compares pointers instead of dereferenced values, causing incorrect equality checks and wrong behavior."
+  "description": "Pointer comparison logic error - the code compares pointers instead of dereferenced values, causing incorrect equality checks and wrong behavior.",
+  "full_fix_commit": "54df739d731c7a3cd812bdbdd1a8f0a08fa2a31d",
+  "merge_commit": "7b48ab447c1b7f35f83882220dcdd0a2d7d4ed98",
+  "parent_commit": "0e55302f39c6389052aa3a82eb0fa8845837c894",
+  "full_parent_commit": "0e55302f39c6389052aa3a82eb0fa8845837c894",
+  "affected_file": "internal/sbi/processor/pdu_session.go",
+  "affected_function": "HandlePDUSessionSMContextUpdate",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

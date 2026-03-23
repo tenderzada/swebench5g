@@ -3,12 +3,20 @@
   "nf": "AMF",
   "repo": "free5gc/amf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "de5c09ee83b1516d5c2fd4847a565655b9e00893",
   "pr_number": 181,
   "issue_url": "https://github.com/free5gc/free5gc/issues/722",
   "pr_url": "https://github.com/free5gc/amf/pull/181",
   "spec": "3GPP TS 29.503",
   "difficulty": "easy",
   "bug_type": "logic-error",
-  "description": "The AMF uses an incorrect service name when calling UDM (Nudm), causing service discovery to fail. The service name string does not match the 3GPP-defined Nudm service names in TS 29.503."
+  "description": "The AMF uses an incorrect service name when calling UDM (Nudm), causing service discovery to fail. The service name string does not match the 3GPP-defined Nudm service names in TS 29.503.",
+  "full_fix_commit": "de5c09ee83b1516d5c2fd4847a565655b9e00893",
+  "merge_commit": "6ece5b56b09dda61065f4c0b1878b039d28c3040",
+  "parent_commit": "4b52f2a8a20ee8b5de2d6bb3fcfa38b311e009ee",
+  "full_parent_commit": "4b52f2a8a20ee8b5de2d6bb3fcfa38b311e009ee",
+  "affected_file": "internal/sbi/consumer/udm_service.go",
+  "affected_function": "UeCmRegistration",
+  "test_package_dir": "internal/sbi/consumer",
+  "test_package_path": "internal/sbi/consumer"
 }

@@ -3,12 +3,20 @@
   "nf": "AMF",
   "repo": "free5gc/amf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "00d6d44195fc990ddd7f29394eaf83c7be3e18f8",
   "pr_number": 192,
   "issue_url": "https://github.com/free5gc/free5gc/issues/768",
   "pr_url": "https://github.com/free5gc/amf/pull/192",
   "spec": "3GPP TS 38.413",
   "difficulty": "medium",
   "bug_type": "crash",
-  "description": "AMF crashes when the first NGAP message from a gNB is not NGSetupRequest. No validation that NGSetup has been completed before processing other NGAP messages."
+  "description": "AMF crashes when the first NGAP message from a gNB is not NGSetupRequest. No validation that NGSetup has been completed before processing other NGAP messages.",
+  "full_fix_commit": "00d6d44195fc990ddd7f29394eaf83c7be3e18f8",
+  "merge_commit": "92b7a3f85764b21b5a94204afc2fb1effff5ed15",
+  "parent_commit": "139fd928a57ee6493d9e591c9b94419586495df9",
+  "full_parent_commit": "139fd928a57ee6493d9e591c9b94419586495df9",
+  "affected_file": "internal/ngap/dispatcher.go",
+  "affected_function": "Dispatch",
+  "test_package_dir": "internal/ngap",
+  "test_package_path": "internal/ngap"
 }

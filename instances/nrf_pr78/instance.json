@@ -3,12 +3,20 @@
   "nf": "NRF",
   "repo": "free5gc/nrf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "233a04e2d898ea1950a83aea6e8400cc2f0cee7d",
   "pr_number": 78,
   "issue_url": "https://github.com/free5gc/free5gc/issues/757",
   "pr_url": "https://github.com/free5gc/nrf/pull/78",
   "spec": "3GPP TS 29.510",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
-  "description": "Nil pointer crash when NF discovery query parameters are missing or invalid. The NRF does not validate query parameters before dereferencing them."
+  "description": "Nil pointer crash when NF discovery query parameters are missing or invalid. The NRF does not validate query parameters before dereferencing them.",
+  "full_fix_commit": "233a04e2d898ea1950a83aea6e8400cc2f0cee7d",
+  "merge_commit": "0eb9bd39dda9157f372575ba3b6d422a74b1af3d",
+  "parent_commit": "6546cdb3174c3a2bd8355bc2347f022af80bded9",
+  "full_parent_commit": "6546cdb3174c3a2bd8355bc2347f022af80bded9",
+  "affected_file": "internal/sbi/processor/nf_discovery.go",
+  "affected_function": "validateQueryParameters",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

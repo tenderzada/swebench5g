@@ -3,12 +3,20 @@
   "nf": "NSSF",
   "repo": "free5gc/nssf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "9a5fbe1a189b2bdc9c079e9b78b17e40fd0cc8a5",
   "pr_number": 44,
   "issue_url": "https://github.com/free5gc/free5gc/issues/764",
   "pr_url": "https://github.com/free5gc/nssf/pull/44",
   "spec": "3GPP TS 29.531",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
-  "description": "Nil pointer panic in nssaiavailability subscription handling when optional fields are absent. The code dereferences optional pointer fields without checking for nil."
+  "description": "Nil pointer panic in nssaiavailability subscription handling when optional fields are absent. The code dereferences optional pointer fields without checking for nil.",
+  "full_fix_commit": "9a5fbe1a189b2bdc9c079e9b78b17e40fd0cc8a5",
+  "merge_commit": "d56f9ed190b7890f63ceb32f84f3e578c0b87f42",
+  "parent_commit": "ae1d5d6c5721c5d7c5733ca9644d8c17036e0f71",
+  "full_parent_commit": "ae1d5d6c5721c5d7c5733ca9644d8c17036e0f71",
+  "affected_file": "internal/sbi/processor/nssaiavailability_subscription.go",
+  "affected_function": "getUnusedSubscriptionID",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

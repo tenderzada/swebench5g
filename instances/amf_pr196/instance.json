@@ -3,12 +3,20 @@
   "nf": "AMF",
   "repo": "free5gc/amf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "399a7854d2143d90022712cd29a15dbacd6892e3",
   "pr_number": 196,
   "issue_url": "https://github.com/free5gc/free5gc/issues/795",
   "pr_url": "https://github.com/free5gc/amf/pull/196",
   "spec": "3GPP TS 24.501",
   "difficulty": "easy",
   "bug_type": "missing-validation",
-  "description": "Missing bounds check for PDU session PSI bitmap in NAS PDU Session Status IE. A malformed or oversized bitmap can cause an index out of range panic."
+  "description": "Missing bounds check for PDU session PSI bitmap in NAS PDU Session Status IE. A malformed or oversized bitmap can cause an index out of range panic.",
+  "full_fix_commit": "399a7854d2143d90022712cd29a15dbacd6892e3",
+  "merge_commit": "849ca6bc314738cc6d2750683ae8db29aed4e93c",
+  "parent_commit": "60ec69fb46bba1d34f2e82a39a202b1f662c5d79",
+  "full_parent_commit": "60ec69fb46bba1d34f2e82a39a202b1f662c5d79",
+  "affected_file": "internal/gmm/handler.go",
+  "affected_function": "transport5GSMMessage",
+  "test_package_dir": "internal/gmm",
+  "test_package_path": "internal/gmm"
 }

@@ -3,12 +3,20 @@
   "nf": "PCF",
   "repo": "free5gc/pcf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "724d1b489e5da1681f2192823888ba306fd3cd63",
   "pr_number": 62,
   "issue_url": "https://github.com/free5gc/free5gc/issues/803",
   "pr_url": "https://github.com/free5gc/pcf/pull/62",
   "spec": "3GPP TS 29.512",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
-  "description": "smData mispositioned - wrong index used when accessing SM policy data from the subscription data array, causing nil pointer dereference and crash."
+  "description": "smData mispositioned - wrong index used when accessing SM policy data from the subscription data array, causing nil pointer dereference and crash.",
+  "full_fix_commit": "724d1b489e5da1681f2192823888ba306fd3cd63",
+  "merge_commit": "df535f5524314620715e842baf9723efbeb481a7",
+  "parent_commit": "fbc3625e365482fd8831c02da57d6caf09f57a5a",
+  "full_parent_commit": "fbc3625e365482fd8831c02da57d6caf09f57a5a",
+  "affected_file": "internal/sbi/processor/smpolicy.go",
+  "affected_function": "HandleCreateSmPolicyRequest",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

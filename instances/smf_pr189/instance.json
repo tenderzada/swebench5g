@@ -3,12 +3,20 @@
   "nf": "SMF",
   "repo": "free5gc/smf",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "757814361d09adb33f13bd337242fcebebf35096",
   "pr_number": 189,
   "issue_url": "https://github.com/free5gc/free5gc/issues/814",
   "pr_url": "https://github.com/free5gc/smf/pull/189",
   "spec": "3GPP TS 29.244",
   "difficulty": "medium",
   "bug_type": "nil-pointer-crash",
-  "description": "SMF crashes on PFCP messages missing mandatory IEs (Information Elements). Multiple PFCP handlers dereference IE pointers without nil checks, causing nil pointer panics."
+  "description": "SMF crashes on PFCP messages missing mandatory IEs (Information Elements). Multiple PFCP handlers dereference IE pointers without nil checks, causing nil pointer panics.",
+  "full_fix_commit": "757814361d09adb33f13bd337242fcebebf35096",
+  "merge_commit": "77cdf558628969fd18efc16a1883313572dc7b82",
+  "parent_commit": "4bc66d5f0557388103ca52d073f53802978d6737",
+  "full_parent_commit": "4bc66d5f0557388103ca52d073f53802978d6737",
+  "affected_file": "internal/pfcp/handler/handler.go",
+  "affected_function": "HandlePfcpSessionReportRequest",
+  "test_package_dir": "internal/pfcp/handler",
+  "test_package_path": "internal/pfcp/handler"
 }

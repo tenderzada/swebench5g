@@ -3,12 +3,20 @@
   "nf": "UDM",
   "repo": "free5gc/udm",
   "base_commit": "PLACEHOLDER",
-  "fix_commit": "PLACEHOLDER",
+  "fix_commit": "61bb128f2ed7e3fe4b564dca2965800d8f13c51d",
   "pr_number": 77,
   "issue_url": "https://github.com/free5gc/free5gc/issues/810",
   "pr_url": "https://github.com/free5gc/udm/pull/77",
   "spec": "3GPP TS 29.510",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
-  "description": "Nil pointer dereference in SendSearchNFInstances when the NRF response is nil or unexpected. The UDM does not check for nil before accessing the response body."
+  "description": "Nil pointer dereference in SendSearchNFInstances when the NRF response is nil or unexpected. The UDM does not check for nil before accessing the response body.",
+  "full_fix_commit": "61bb128f2ed7e3fe4b564dca2965800d8f13c51d",
+  "merge_commit": "b0e73c6ab0b1c2908298013b1cbec3ed88feec93",
+  "parent_commit": "9561f5753a0e4dd31ee98715b9e9f4a522d8a5d0",
+  "full_parent_commit": "9561f5753a0e4dd31ee98715b9e9f4a522d8a5d0",
+  "affected_file": "internal/sbi/consumer/nrf_service.go",
+  "affected_function": "SendSearchNFInstances",
+  "test_package_dir": "internal/sbi/consumer",
+  "test_package_path": "internal/sbi/consumer"
 }
