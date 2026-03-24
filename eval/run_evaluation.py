@@ -241,18 +241,52 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     if not reply.strip():
         return False, "Qwen returned empty response"
 
+    # Save raw response for debugging
+    debug_path = f"/tmp/qwen_response_{int(time.time())}.txt"
+    try:
+        with open(debug_path, "w", encoding="utf-8") as df:
+            df.write(reply)
+    except Exception:
+        pass
+
     # Step 5: Parse response and apply file changes
     import re
+    matches = []
+
+    # Format 1: === FILE: path === ... === END FILE ===
     file_pattern = r'=== FILE: (.+?) ===\n(.*?)\n=== END FILE ==='
     matches = re.findall(file_pattern, reply, re.DOTALL)
 
+    # Format 2: ```go with filename in preceding line
     if not matches:
-        # Try alternative format: ```go blocks with filename comments
-        alt_pattern = r'(?:// File: |// )(.+\.go)\n```go\n(.*?)```'
-        matches = re.findall(alt_pattern, reply, re.DOTALL)
+        alt_pattern = r'(?:`{3,})(?:go)?\s*\n(.*?)(?:`{3,})'
+        code_blocks = re.findall(alt_pattern, reply, re.DOTALL)
+        # Try to find filename references before code blocks
+        fname_pattern = r'[`*]*([a-zA-Z_/]+\.go)[`*]*'
+        fnames = re.findall(fname_pattern, reply)
+        if code_blocks and fnames:
+            # Match code blocks with filenames
+            for i, block in enumerate(code_blocks):
+                if block.strip() and len(block.strip()) > 50:  # skip tiny snippets
+                    fname = fnames[min(i, len(fnames)-1)]
+                    if not fname.startswith("/"):
+                        matches.append((fname, block))
+
+    # Format 3: diff/patch format - extract the target file and apply
+    if not matches and ("diff --git" in reply or "@@" in reply):
+        # Save as patch and apply via git apply
+        import base64
+        b64 = base64.b64encode(reply.encode('utf-8')).decode('ascii')
+        rc, _, err = docker_exec(
+            container_id,
+            f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply /tmp/qwen.patch",
+            timeout=30
+        )
+        if rc == 0:
+            return True, ""
 
     if not matches:
-        return False, f"Could not parse file changes from Qwen response (length={len(reply)})"
+        return False, f"Could not parse file changes from Qwen response (length={len(reply)}). Debug: {debug_path}"
 
     applied = 0
     for rel_path, content in matches:
