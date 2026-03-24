@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SWE-Bench 5G — Evaluating AI Coding Agents on 5G Core Network Tasks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== CSS Variables ===== */
+:root {
+  --primary: #2563eb;
+  --primary-light: #3b82f6;
+  --primary-dark: #1d4ed8;
+  --accent: #06b6d4;
+  --bg: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-card: #ffffff;
+  --text: #1e293b;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+  --radius: 12px;
+  --font: 'Inter', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; }
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ===== Nav ===== */
+nav {
+  position: fixed; top: 0; width: 100%; z-index: 100;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px); padding: 0 2rem;
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px;
+}
+.nav-brand { font-weight: 800; font-size: 1.1rem; }
+.nav-brand span { color: var(--primary); }
+.nav-links { display: flex; gap: 1.5rem; align-items: center; }
+.nav-links a { color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; }
+.nav-links a:hover { color: var(--primary); text-decoration: none; }
+.nav-icons { display: flex; gap: 0.75rem; align-items: center; }
+.icon-btn {
+  background: none; border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; cursor: pointer; color: var(--text); font-size: 0.85rem;
+}
+.icon-btn:hover { background: var(--bg-secondary); }
+
+/* ===== Hero ===== */
+.hero {
+  margin-top: 60px; padding: 5rem 2rem 4rem;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg) 100%);
+  text-align: center;
+}
+.hero h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.2; max-width: 800px; margin: 0 auto 1rem; }
+.hero h1 span { color: var(--primary); }
+.hero p { color: var(--text-secondary); font-size: 1.15rem; max-width: 700px; margin: 0 auto 2rem; }
+.hero-stats {
+  display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem 2rem; box-shadow: var(--shadow); min-width: 150px;
+}
+.stat-num { font-size: 2rem; font-weight: 800; color: var(--primary); }
+.stat-label { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
+.hero-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.btn {
+  padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; font-size: 0.95rem;
+  border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); text-decoration: none; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--bg-secondary); text-decoration: none; }
+
+/* ===== Sections ===== */
+section { padding: 4rem 2rem; max-width: 1200px; margin: 0 auto; }
+.section-title {
+  font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; text-align: center;
+}
+.section-subtitle {
+  color: var(--text-secondary); text-align: center; margin-bottom: 2.5rem; max-width: 700px; margin-left: auto; margin-right: auto;
+}
+.alt-bg { background: var(--bg-secondary); }
+.alt-bg section { padding: 4rem 2rem; }
+
+/* ===== Architecture ===== */
+.arch-flow {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.5rem; flex-wrap: wrap; margin: 2rem 0;
+}
+.arch-step {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem 1.5rem; text-align: center; min-width: 140px;
+  box-shadow: var(--shadow);
+}
+.arch-step .step-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
+.arch-step .step-title { font-weight: 600; font-size: 0.95rem; }
+.arch-step .step-desc { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
+.arch-arrow { font-size: 1.5rem; color: var(--primary); font-weight: 700; }
+
+/* ===== NF Grid ===== */
+.nf-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem; margin-top: 2rem;
+}
+.nf-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem; box-shadow: var(--shadow); transition: transform 0.2s;
+}
+.nf-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.nf-card .nf-name { font-weight: 700; font-size: 1.1rem; color: var(--primary); }
+.nf-card .nf-full { font-size: 0.85rem; color: var(--text-secondary); }
+.nf-card .nf-desc { font-size: 0.9rem; margin-top: 0.5rem; }
+.nf-card .nf-count { margin-top: 0.75rem; font-size: 0.8rem; color: var(--accent); font-weight: 600; }
+
+/* ===== Instance Cards ===== */
+.filter-bar {
+  display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem;
+}
+.filter-chip {
+  padding: 0.4rem 1rem; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-card); cursor: pointer; font-size: 0.85rem; font-weight: 500;
+  color: var(--text-secondary); transition: all 0.2s;
+}
+.filter-chip.active, .filter-chip:hover {
+  background: var(--primary); color: white; border-color: var(--primary);
+}
+.instance-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+.instance-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s;
+}
+.instance-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.instance-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.instance-id { font-family: var(--mono); font-weight: 600; font-size: 0.95rem; }
+.badge {
+  font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 12px;
+  font-weight: 600; text-transform: uppercase;
+}
+.badge-easy { background: #dcfce7; color: #166534; }
+.badge-medium { background: #fef3c7; color: #92400e; }
+.badge-hard { background: #fecaca; color: #991b1b; }
+[data-theme="dark"] .badge-easy { background: #166534; color: #dcfce7; }
+[data-theme="dark"] .badge-medium { background: #92400e; color: #fef3c7; }
+[data-theme="dark"] .badge-hard { background: #991b1b; color: #fecaca; }
+.instance-nf { color: var(--primary); font-weight: 600; font-size: 0.85rem; margin-top: 0.5rem; }
+.instance-bug { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem; }
+.instance-desc { font-size: 0.85rem; margin-top: 0.75rem; line-height: 1.5; }
+.instance-tags { display: flex; gap: 0.4rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.tag {
+  font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 4px;
+  background: var(--bg-secondary); color: var(--text-secondary); font-family: var(--mono);
+}
+
+/* ===== Code Block ===== */
+.code-block {
+  background: #1e293b; color: #e2e8f0; border-radius: var(--radius);
+  padding: 1.5rem; font-family: var(--mono); font-size: 0.85rem;
+  overflow-x: auto; line-height: 1.7; margin: 1.5rem 0;
+}
+.code-block .comment { color: #64748b; }
+.code-block .cmd { color: #38bdf8; }
+.code-block .output { color: #4ade80; }
+
+/* ===== Footer ===== */
+footer {
+  border-top: 1px solid var(--border); padding: 2rem;
+  text-align: center; color: var(--text-secondary); font-size: 0.85rem;
+}
+footer a { color: var(--primary); }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg-card); border-radius: var(--radius); padding: 2rem;
+  max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.modal-close {
+  float: right; background: none; border: none; font-size: 1.5rem;
+  cursor: pointer; color: var(--text-secondary);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 1.8rem; }
+  .nav-links { display: none; }
+  .arch-flow { flex-direction: column; }
+  .arch-arrow { transform: rotate(90deg); }
+}
+
+/* ===== Animation ===== */
+.reveal { opacity: 0; transform: translateY(20px); transition: all 0.6s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-brand">SWE-Bench <span>5G</span></div>
+    <div class="nav-links">
+      <a href="#overview">Overview</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#dataset">Dataset</a>
+      <a href="#5g-background">5G Background</a>
+      <a href="#quickstart">Quick Start</a>
+    </div>
+    <div class="nav-icons">
+      <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+        <span id="theme-icon">&#9790;</span>
+      </button>
+      <a class="icon-btn" href="https://github.com/tenderzada/swebench5g" target="_blank">GitHub</a>
+      <a class="icon-btn" href="https://huggingface.co/datasets/tenderzada/SWEBench5G" target="_blank">HF</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Evaluating AI Coding Agents on <span>5G Core Network</span> Tasks</h1>
+  <p>The first benchmark targeting telecommunications software engineering. Real bugs from free5GC, packaged as Docker environments, evaluated with automated test suites.</p>
+  <div class="hero-stats">
+    <div class="stat-card"><div class="stat-num">10</div><div class="stat-label">Validated Instances</div></div>
+    <div class="stat-card"><div class="stat-num">7</div><div class="stat-label">Network Functions</div></div>
+    <div class="stat-card"><div class="stat-num">280</div><div class="stat-label">Candidate Pool</div></div>
+    <div class="stat-card"><div class="stat-num">16</div><div class="stat-label">Source Repositories</div></div>
+  </div>
+  <div class="hero-buttons">
+    <a class="btn btn-primary" href="https://huggingface.co/datasets/tenderzada/SWEBench5G" target="_blank">Dataset on HuggingFace</a>
+    <a class="btn btn-outline" href="https://github.com/tenderzada/swebench5g" target="_blank">View on GitHub</a>
+    <a class="btn btn-outline" href="#quickstart">Quick Start</a>
+  </div>
+</div>
+
+<!-- Overview -->
+<section id="overview" class="reveal">
+  <h2 class="section-title">Why SWE-Bench 5G?</h2>
+  <p class="section-subtitle">Existing benchmarks (SWE-Bench, SWE-Bench Mobile, BeyondSWE) cover Python, Swift, and general software. None address the telecommunications domain.</p>
+  <div class="nf-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+    <div class="nf-card">
+      <div class="nf-name">Specification-Driven</div>
+      <div class="nf-desc">Correctness is defined by 3GPP Technical Specifications, not just "doesn't crash". Agents must interpret formal protocol text.</div>
+    </div>
+    <div class="nf-card">
+      <div class="nf-name">Distributed Architecture</div>
+      <div class="nf-desc">Multiple Network Functions run as microservices. A single operation triggers signaling across AMF, SMF, UPF, and more.</div>
+    </div>
+    <div class="nf-card">
+      <div class="nf-name">Protocol State Machines</div>
+      <div class="nf-desc">5G procedures involve complex multi-step state machines with specific message sequences and error handling paths.</div>
+    </div>
+  </div>
+</section>
+
+<!-- Architecture -->
+<div class="alt-bg">
+<section id="architecture" class="reveal">
+  <h2 class="section-title">Evaluation Architecture</h2>
+  <p class="section-subtitle">Each task instance is a self-contained Docker image. Following the BeyondSWE methodology for full reproducibility.</p>
+  <div class="arch-flow">
+    <div class="arch-step">
+      <div class="step-icon">&#128230;</div>
+      <div class="step-title">Docker Image</div>
+      <div class="step-desc">Go toolchain + NF source at buggy commit</div>
+    </div>
+    <div class="arch-arrow">&#8594;</div>
+    <div class="arch-step">
+      <div class="step-icon">&#129302;</div>
+      <div class="step-title">AI Agent</div>
+      <div class="step-desc">Reads problem, navigates code, writes patch</div>
+    </div>
+    <div class="arch-arrow">&#8594;</div>
+    <div class="arch-step">
+      <div class="step-icon">&#128196;</div>
+      <div class="step-title">Patch</div>
+      <div class="step-desc">Agent's unified diff extracted via git</div>
+    </div>
+    <div class="arch-arrow">&#8594;</div>
+    <div class="arch-step">
+      <div class="step-icon">&#9989;</div>
+      <div class="step-title">Test Suite</div>
+      <div class="step-desc">PASS_TO_PASS + FAIL_TO_PASS</div>
+    </div>
+    <div class="arch-arrow">&#8594;</div>
+    <div class="arch-step">
+      <div class="step-icon">&#128200;</div>
+      <div class="step-title">Result</div>
+      <div class="step-desc">Resolved / Not Resolved</div>
+    </div>
+  </div>
+
+  <h3 style="text-align:center; margin-top:2.5rem; margin-bottom:1rem;">Two Test Strategies</h3>
+  <div class="nf-grid" style="grid-template-columns: 1fr 1fr;">
+    <div class="nf-card">
+      <div class="nf-name">Strategy A: Direct Function Call</div>
+      <div class="nf-desc">Call the buggy function with crash-triggering input. Uses defer/recover to detect panics. Ideal when the function can be called with minimal setup.</div>
+      <div class="nf-count">Used by: pilot_pcf_879, amf_pr157</div>
+    </div>
+    <div class="nf-card">
+      <div class="nf-name">Strategy B: Diff-Based Intent Test</div>
+      <div class="nf-desc">Inspired by SWE-Bench Mobile. Read source code and verify fix patterns exist. For functions with complex dependencies that can't be unit-tested.</div>
+      <div class="nf-count">Used by: amf_pr161, amf_pr118, nssf_pr39</div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- Dataset -->
+<section id="dataset" class="reveal">
+  <h2 class="section-title">Dataset (v0.2)</h2>
+  <p class="section-subtitle">10 validated task instances from real free5GC issues, spanning 7 Network Functions.</p>
+
+  <div class="filter-bar" id="filterBar"></div>
+  <div class="instance-grid" id="instanceGrid"></div>
+</section>
+
+<!-- 5G Background -->
+<div class="alt-bg">
+<section id="5g-background" class="reveal">
+  <h2 class="section-title">5G Core Network</h2>
+  <p class="section-subtitle">The 5G Core (5GC) consists of multiple Network Functions, each running as an independent microservice.</p>
+  <div class="nf-grid">
+    <div class="nf-card"><div class="nf-name">AMF</div><div class="nf-full">Access & Mobility Management</div><div class="nf-desc">UE registration, authentication, mobility</div><div class="nf-count">3 instances in dataset</div></div>
+    <div class="nf-card"><div class="nf-name">SMF</div><div class="nf-full">Session Management</div><div class="nf-desc">PDU session lifecycle, QoS</div><div class="nf-count">1 instance in dataset</div></div>
+    <div class="nf-card"><div class="nf-name">PCF</div><div class="nf-full">Policy Control</div><div class="nf-desc">QoS policies, charging rules</div><div class="nf-count">2 instances in dataset</div></div>
+    <div class="nf-card"><div class="nf-name">UPF</div><div class="nf-full">User Plane Function</div><div class="nf-desc">Data packet forwarding</div><div class="nf-count">0 instances (planned)</div></div>
+    <div class="nf-card"><div class="nf-name">UDM</div><div class="nf-full">Unified Data Management</div><div class="nf-desc">Subscriber data, key management</div><div class="nf-count">1 instance in dataset</div></div>
+    <div class="nf-card"><div class="nf-name">AUSF</div><div class="nf-full">Authentication Server</div><div class="nf-desc">5G-AKA, EAP authentication</div><div class="nf-count">1 instance in dataset</div></div>
+    <div class="nf-card"><div class="nf-name">NRF</div><div class="nf-full">NF Repository</div><div class="nf-desc">Service registration & discovery</div><div class="nf-count">1 instance in dataset</div></div>
+    <div class="nf-card"><div class="nf-name">NSSF</div><div class="nf-full">Network Slice Selection</div><div class="nf-desc">Slice management & selection</div><div class="nf-count">1 instance in dataset</div></div>
+  </div>
+</section>
+</div>
+
+<!-- Quick Start -->
+<section id="quickstart" class="reveal">
+  <h2 class="section-title">Quick Start</h2>
+  <p class="section-subtitle">Try the benchmark in minutes.</p>
+
+  <div class="code-block">
+<span class="comment"># 1. Clone the repository</span>
+<span class="cmd">git clone git@github.com:tenderzada/swebench5g.git && cd swebench5g</span>
+
+<span class="comment"># 2. Build the pilot instance</span>
+<span class="cmd">cd pilot_pcf_879 && bash scripts/build_image.sh</span>
+
+<span class="comment"># 3. Validate (3-step check)</span>
+<span class="cmd">bash scripts/validate_image.sh</span>
+<span class="output">Step 1: Existing tests     -> PASS</span>
+<span class="output">Step 2: Fail-to-pass tests -> FAIL (bug confirmed)</span>
+<span class="output">Step 3: After fix          -> ALL PASS</span>
+
+<span class="comment"># 4. Experience the Agent workflow</span>
+<span class="cmd">docker run -it swebench5g/free5gc:pcf_issue_879</span>
+<span class="cmd">cat /opt/task/problem_statement.md</span>
+<span class="cmd">/opt/test-suite/run_tests.sh fail</span>
+<span class="comment"># Fix the code, then verify:</span>
+<span class="cmd">/opt/test-suite/run_tests.sh all</span>
+
+<span class="comment"># 5. Load dataset from HuggingFace</span>
+<span class="cmd">python -c "from datasets import load_dataset; ds = load_dataset('tenderzada/SWEBench5G')"</span>
+  </div>
+</section>
+
+<!-- Citation -->
+<div class="alt-bg">
+<section class="reveal">
+  <h2 class="section-title">Citation</h2>
+  <div class="code-block" style="max-width:700px; margin:1rem auto;">
+@misc{swebench5g2026,
+  title={SWE-Bench 5G: Evaluating AI Coding Agents
+         on 5G Core Network Engineering Tasks},
+  author={tenderzada},
+  year={2026},
+  url={https://huggingface.co/datasets/tenderzada/SWEBench5G}
+}
+  </div>
+</section>
+</div>
+
+<!-- Footer -->
+<footer>
+  <p>SWE-Bench 5G &mdash; Built on <a href="https://github.com/free5gc/free5gc" target="_blank">free5GC</a> (Apache-2.0) | Dataset: <a href="https://huggingface.co/datasets/tenderzada/SWEBench5G" target="_blank">CC-BY-4.0</a></p>
+  <p style="margin-top:0.5rem;">Inspired by <a href="https://www.swebench.com/" target="_blank">SWE-Bench</a>, <a href="https://arxiv.org/abs/2602.09540" target="_blank">SWE-Bench Mobile</a>, and <a href="https://arxiv.org/abs/2603.03194" target="_blank">BeyondSWE</a></p>
+</footer>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ===== Instance Data =====
+const INSTANCES = [
+  { id: "pilot_pcf_879", nf: "PCF", difficulty: "easy", bug: "nil-pointer-crash",
+    title: "Nil pointer in policyauthorization (suppFeat=1)",
+    desc: "PCF crashes when suppFeat=1 enables traffic routing but AfRoutReq is absent. The function provisioningOfTrafficRoutingInfo dereferences nil routeReq.",
+    spec: "TS 29.514, TS 29.512", file: "policyauthorization.go", func: "provisioningOfTrafficRoutingInfo",
+    issue: "https://github.com/free5gc/free5gc/issues/879", strategy: "A" },
+  { id: "amf_pr118", nf: "AMF", difficulty: "easy", bug: "crash",
+    title: "Crash on short NAS payload (<7 bytes)",
+    desc: "AMF panics with slice bounds out of range when NAS payload is shorter than 7 bytes. No length validation before stripping the security header.",
+    spec: "TS 24.501", file: "security.go", func: "DecodePlainNasNoIntegrityCheck",
+    issue: "https://github.com/free5gc/free5gc/issues/523", strategy: "B" },
+  { id: "amf_pr157", nf: "AMF", difficulty: "easy", bug: "missing-validation",
+    title: "Empty NAS PDU bypasses nil check",
+    desc: "Empty byte slice passes nil check but causes downstream crash. The code checks `payload == nil` but not `len(payload) == 0`.",
+    spec: "TS 24.501", file: "security.go", func: "DecodePlainNasNoIntegrityCheck",
+    issue: "https://github.com/free5gc/free5gc/issues/657", strategy: "A" },
+  { id: "amf_pr161", nf: "AMF", difficulty: "easy", bug: "nil-pointer-crash",
+    title: "Nil GNbId in NGAP handler",
+    desc: "AMF crashes when GNbId is nil in UplinkRANConfigurationTransfer. Code accesses GNbId.GNBValue without nil check.",
+    spec: "TS 38.413", file: "handler.go", func: "handleUplinkRANConfigurationTransferMain",
+    issue: "https://github.com/free5gc/free5gc/issues/641", strategy: "B" },
+  { id: "ausf_pr52", nf: "AUSF", difficulty: "easy", bug: "nil-pointer-crash",
+    title: "Nil interface assertion in resync",
+    desc: "AUSF panics on nil interface type assertion when SUCI-SUPI mapping doesn't exist during resynchronization.",
+    spec: "TS 29.509", file: "ue_authentication.go", func: "UeAuthPostRequestProcedure",
+    issue: "https://github.com/free5gc/free5gc/issues/778", strategy: "B" },
+  { id: "nrf_pr79", nf: "NRF", difficulty: "easy", bug: "crash",
+    title: "Reflect panic on unknown OAuth2 form key",
+    desc: "NRF crashes when /oauth2/token receives an unknown form key. reflect.FieldByName(\"\").Set panics on zero Value.",
+    spec: "TS 29.510, RFC 6749", file: "api_accesstoken.go", func: "HTTPAccessTokenRequest",
+    issue: "https://github.com/free5gc/free5gc/issues/770", strategy: "B" },
+  { id: "nssf_pr39", nf: "NSSF", difficulty: "easy", bug: "nil-pointer-crash",
+    title: "Nil Expiry in NSSAIAvailability subscription",
+    desc: "NSSF crashes when POST /nssai-availability/subscriptions omits the optional Expiry field. Code calls .IsZero() on nil pointer.",
+    spec: "TS 29.531", file: "nssaiavailability_subscription.go", func: "NssaiAvailabilitySubscriptionCreate",
+    issue: "https://github.com/free5gc/free5gc/issues/704", strategy: "B" },
+  { id: "pcf_pr57", nf: "PCF", difficulty: "easy", bug: "nil-pointer-crash",
+    title: "Missing return in DeletePoliciesPolAssoId",
+    desc: "PCF crashes when deleting non-existent policy. Error handler sends response but doesn't return, falling through to nil dereference.",
+    spec: "TS 29.507", file: "ampolicy.go", func: "HandleDeletePoliciesPolAssoId",
+    issue: "https://github.com/free5gc/free5gc/issues/726", strategy: "B" },
+  { id: "smf_pr125", nf: "SMF", difficulty: "easy", bug: "nil-pointer-crash",
+    title: "Nil statusCode after N1N2MessageTransfer error",
+    desc: "SMF crashes when N1N2MessageTransfer fails and returns nil statusCode. No early return in error block, falls through to switch *statusCode.",
+    spec: "TS 29.518", file: "association.go", func: "requestAMFToReleasePDUResources",
+    issue: "https://github.com/free5gc/smf/issues/121", strategy: "B" },
+  { id: "udm_pr45", nf: "UDM", difficulty: "easy", bug: "index-out-of-range",
+    title: "SUCI-to-SUPI keyIndex=0 out of range",
+    desc: "UDM panics when keyIndex is 0. Code checks upper bound but not lower bound, causing profiles[keyIndex-1] = profiles[-1].",
+    spec: "TS 29.509", file: "suci.go", func: "ToSupi",
+    issue: "https://github.com/free5gc/free5gc/issues/635", strategy: "B" },
+];
+
+// ===== Render Instances =====
+function renderInstances(filter) {
+  const grid = document.getElementById('instanceGrid');
+  const filtered = filter === 'All' ? INSTANCES : INSTANCES.filter(i => i.nf === filter);
+  grid.innerHTML = filtered.map(i => `
+    <div class="instance-card" onclick="showModal('${i.id}')">
+      <div class="instance-header">
+        <span class="instance-id">${i.id}</span>
+        <span class="badge badge-${i.difficulty}">${i.difficulty}</span>
+      </div>
+      <div class="instance-nf">${i.nf}</div>
+      <div class="instance-bug">${i.bug}</div>
+      <div class="instance-desc">${i.title}</div>
+      <div class="instance-tags">
+        <span class="tag">${i.file}</span>
+        <span class="tag">Strategy ${i.strategy}</span>
+        <span class="tag">${i.spec.split(',')[0]}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===== Filter Bar =====
+function renderFilters() {
+  const nfs = ['All', ...new Set(INSTANCES.map(i => i.nf))];
+  const bar = document.getElementById('filterBar');
+  bar.innerHTML = nfs.map(nf =>
+    `<span class="filter-chip ${nf==='All'?'active':''}" onclick="filterBy('${nf}', this)">${nf}${nf!=='All'?' ('+INSTANCES.filter(i=>i.nf===nf).length+')':''}</span>`
+  ).join('');
+}
+
+function filterBy(nf, el) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderInstances(nf);
+}
+
+// ===== Modal =====
+function showModal(id) {
+  const i = INSTANCES.find(x => x.id === id);
+  document.getElementById('modal-content').innerHTML = `
+    <h2 style="margin-bottom:0.5rem">${i.id}</h2>
+    <span class="badge badge-${i.difficulty}" style="margin-bottom:1rem;display:inline-block">${i.difficulty}</span>
+    <p><strong>NF:</strong> ${i.nf} | <strong>Bug Type:</strong> ${i.bug}</p>
+    <p><strong>File:</strong> <code>${i.file}</code> | <strong>Function:</strong> <code>${i.func}</code></p>
+    <p><strong>3GPP Spec:</strong> ${i.spec}</p>
+    <p><strong>Test Strategy:</strong> ${i.strategy === 'A' ? 'Direct Function Call' : 'Diff-Based Intent Test'}</p>
+    <hr style="margin:1rem 0;border-color:var(--border)">
+    <p>${i.desc}</p>
+    <p style="margin-top:1rem"><a href="${i.issue}" target="_blank">View Issue on GitHub &rarr;</a></p>
+  `;
+  document.getElementById('modal').classList.add('active');
+}
+function closeModal() { document.getElementById('modal').classList.remove('active'); }
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// ===== Theme =====
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = next;
+  document.getElementById('theme-icon').textContent = next === 'dark' ? '\u2600' : '\u263E';
+  localStorage.setItem('theme', next);
+}
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) { document.documentElement.dataset.theme = saved; document.getElementById('theme-icon').textContent = saved==='dark'?'\u2600':'\u263E'; }
+})();
+
+// ===== Scroll Reveal =====
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ===== Init =====
+renderFilters();
+renderInstances('All');
+</script>
+</body>
+</html>
