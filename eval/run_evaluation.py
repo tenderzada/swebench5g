@@ -205,25 +205,27 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
 
     system_prompt = (
         "You are an expert Go developer fixing bugs in the free5GC 5G core network. "
-        "Read the bug description and source code, then output your fix as SEARCH/REPLACE blocks.\n\n"
-        "Format:\n"
-        "```\n"
+        "The source code is shown with line numbers. Identify the bug and output your fix.\n\n"
+        "Output format — for each change output:\n"
         "FILE: <relative/path/to/file.go>\n"
-        "SEARCH:\n"
-        "<exact lines from the original code to find>\n"
-        "REPLACE:\n"
-        "<the replacement code>\n"
-        "END\n"
-        "```\n\n"
+        "LINE: <line number to insert BEFORE>\n"
+        "CODE:\n"
+        "<new lines of code to insert>\n"
+        "ENDCODE\n\n"
+        "Or if you need to replace existing lines:\n"
+        "FILE: <relative/path/to/file.go>\n"
+        "REPLACE_LINES: <start_line>-<end_line>\n"
+        "CODE:\n"
+        "<replacement code>\n"
+        "ENDCODE\n\n"
         "Rules:\n"
-        "- The SEARCH block must contain EXACT lines copied from the source (including whitespace).\n"
-        "- Use enough context lines (3-5) to make the SEARCH unique in the file.\n"
+        "- Use the exact line numbers from the source listing.\n"
         "- Keep changes minimal — only fix the described bug.\n"
         "- Do NOT modify test files.\n"
-        "- Output ONLY the SEARCH/REPLACE block, no explanations."
+        "- Output ONLY the fix instructions, no explanations."
     )
 
-    user_prompt = f"## Bug Description\n\n{problem}\n\n## Source Files\n{files_text}"
+    user_prompt = f"## Bug Description\n\n{problem}\n\n## Source Files (with line numbers)\n{files_text}"
 
     # Step 4: Call Qwen API
     # Qwen3.5-Flash uses thinking mode by default. We disable it for
@@ -269,99 +271,105 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     if fence_match:
         clean = fence_match.group(1).strip()
 
-    # Parse FILE / SEARCH / REPLACE blocks (END marker optional)
-    block_pattern = r'FILE:\s*(.+?)\s*\nSEARCH:\n(.*?)\nREPLACE:\n(.*?)(?:\nEND|\Z)'
-    blocks = re.findall(block_pattern, clean, re.DOTALL)
-
-    if not blocks:
-        # Fallback: try diff format
-        if '---' in clean and '@@' in clean:
-            b64 = base64.b64encode(clean.encode('utf-8')).decode('ascii')
-            rc, _, _ = docker_exec(
-                container_id,
-                f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply -C0 --recount /tmp/qwen.patch 2>&1",
-                timeout=30
-            )
-            if rc == 0:
-                return True, ""
-        return False, f"Could not parse SEARCH/REPLACE blocks from Qwen response (length={len(reply)}). Debug: {debug_path}"
-
+    # Parse edits — support multiple formats
     applied = 0
     errors = []
-    for rel_path, search, replace in blocks:
+
+    # Format 1: LINE-based insertion
+    # FILE: path\nLINE: N\nCODE:\n...\nENDCODE
+    insert_pattern = r'FILE:\s*(.+?)\s*\nLINE:\s*(\d+)\s*\nCODE:\n(.*?)\nENDCODE'
+    inserts = re.findall(insert_pattern, clean, re.DOTALL)
+
+    # Format 2: REPLACE_LINES range
+    # FILE: path\nREPLACE_LINES: M-N\nCODE:\n...\nENDCODE
+    replace_pattern = r'FILE:\s*(.+?)\s*\nREPLACE_LINES:\s*(\d+)\s*-\s*(\d+)\s*\nCODE:\n(.*?)\nENDCODE'
+    replaces = re.findall(replace_pattern, clean, re.DOTALL)
+
+    # Format 3: SEARCH/REPLACE (fallback)
+    search_pattern = r'FILE:\s*(.+?)\s*\nSEARCH:\n(.*?)\nREPLACE:\n(.*?)(?:\nEND(?:CODE)?|\Z)'
+    searches = re.findall(search_pattern, clean, re.DOTALL)
+
+    # Process insertions
+    for rel_path, line_num, code in inserts:
+        rel_path = rel_path.strip()
+        line_num = int(line_num)
+        full_path = f"{workdir}/{rel_path}"
+
+        rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
+        if rc != 0:
+            errors.append(f"Cannot read {rel_path}")
+            continue
+
+        lines = current.split('\n')
+        insert_idx = min(line_num - 1, len(lines))
+        new_lines = lines[:insert_idx] + code.strip().split('\n') + lines[insert_idx:]
+        new_content = '\n'.join(new_lines)
+
+        b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
+        rc, _, _ = docker_exec(container_id, f"echo '{b64}' | base64 -d > {full_path}", timeout=30)
+        if rc == 0:
+            applied += 1
+        else:
+            errors.append(f"Failed to write {rel_path}")
+
+    # Process replacements
+    for rel_path, start, end, code in replaces:
+        rel_path = rel_path.strip()
+        start, end = int(start), int(end)
+        full_path = f"{workdir}/{rel_path}"
+
+        rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
+        if rc != 0:
+            errors.append(f"Cannot read {rel_path}")
+            continue
+
+        lines = current.split('\n')
+        new_lines = lines[:start-1] + code.strip().split('\n') + lines[end:]
+        new_content = '\n'.join(new_lines)
+
+        b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
+        rc, _, _ = docker_exec(container_id, f"echo '{b64}' | base64 -d > {full_path}", timeout=30)
+        if rc == 0:
+            applied += 1
+        else:
+            errors.append(f"Failed to write {rel_path}")
+
+    # Process search/replace
+    for rel_path, search, replace_code in searches:
         rel_path = rel_path.strip()
         full_path = f"{workdir}/{rel_path}"
 
-        # Read current file (without line numbers)
         rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
         if rc != 0:
             errors.append(f"Cannot read {rel_path}")
             continue
 
         search_text = search.strip()
-        replace_text = replace.strip()
+        replace_text = replace_code.strip()
 
-        # Strategy 1: exact match
         if search_text in current:
             new_content = current.replace(search_text, replace_text, 1)
             b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
-            rc, _, _ = docker_exec(
-                container_id,
-                f"echo '{b64}' | base64 -d > {full_path}",
-                timeout=30
-            )
+            rc, _, _ = docker_exec(container_id, f"echo '{b64}' | base64 -d > {full_path}", timeout=30)
             if rc == 0:
                 applied += 1
-            else:
-                errors.append(f"Failed to write {rel_path}")
-        else:
-            # Strategy 2: fuzzy match — find the most unique lines from SEARCH
-            # and locate them in the file, then replace the surrounding block
-            search_lines = [l for l in search_text.splitlines() if l.strip()]
-            replace_lines_text = replace_text
+                continue
+        errors.append(f"SEARCH not found in {rel_path}")
 
-            # Try to find a unique anchor line (not common like "}" or "return")
-            anchor = None
-            for line in search_lines:
-                stripped = line.strip()
-                if len(stripped) > 15 and current.count(stripped) == 1:
-                    anchor = stripped
-                    break
-
-            if anchor:
-                # Find the anchor in source and replace lines around it
-                # Use the first and last meaningful SEARCH lines as boundaries
-                first_line = search_lines[0].strip()
-                last_line = search_lines[-1].strip()
-
-                start_idx = current.find(anchor)
-                if start_idx >= 0:
-                    # Expand to find the block boundaries
-                    block_start = current.rfind('\n', 0, start_idx) + 1
-                    # Find a reasonable end (look for last search line after anchor)
-                    block_end = current.find(last_line, start_idx)
-                    if block_end >= 0:
-                        block_end = current.index('\n', block_end) + 1
-                    else:
-                        block_end = current.index('\n', start_idx) + 1
-
-                    original_block = current[block_start:block_end]
-                    new_content = current[:block_start] + replace_lines_text + '\n' + current[block_end:]
-                    b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
-                    rc, _, _ = docker_exec(
-                        container_id,
-                        f"echo '{b64}' | base64 -d > {full_path}",
-                        timeout=30
-                    )
-                    if rc == 0:
-                        applied += 1
-                        continue
-
-            errors.append(f"SEARCH block not found in {rel_path} (exact or fuzzy)")
+    # Fallback: try as diff
+    if applied == 0 and ('---' in clean and '@@' in clean):
+        b64 = base64.b64encode(clean.encode('utf-8')).decode('ascii')
+        rc, _, _ = docker_exec(
+            container_id,
+            f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply -C0 --recount /tmp/qwen.patch 2>&1",
+            timeout=30
+        )
+        if rc == 0:
+            return True, ""
 
     if applied > 0:
         return True, ""
-    return False, f"No blocks applied. {'; '.join(errors)}. Debug: {debug_path}"
+    return False, f"No edits applied ({len(inserts)} inserts, {len(replaces)} replaces, {len(searches)} searches). {'; '.join(errors)}. Debug: {debug_path}"
 
 
 def _run_manual_patch(container_id, workdir):
