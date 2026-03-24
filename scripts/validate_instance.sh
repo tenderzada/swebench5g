@@ -5,9 +5,6 @@
 #   1. Existing tests PASS on buggy commit
 #   2. Fail-to-pass tests FAIL on buggy commit
 #   3. After applying fix: ALL tests PASS
-#
-# Usage:
-#   bash scripts/validate_instance.sh instances/pcf_pr65/instance.json
 
 set -e
 
@@ -22,6 +19,7 @@ parse() { python3 -c "import json,sys; d=json.load(open('$CONFIG')); print(d.get
 
 INSTANCE_ID=$(parse instance_id "")
 FIX_COMMIT=$(parse full_fix_commit "")
+MERGE_COMMIT=$(parse merge_commit "")
 IMAGE_NAME="swebench5g/free5gc:${INSTANCE_ID}"
 REPO_NAME=$(parse repo "" | cut -d/ -f2)
 WORKDIR="/opt/free5gc-${REPO_NAME}"
@@ -56,8 +54,9 @@ fi
 echo ""
 
 # Step 3: After fix, all should PASS
+# Try multiple strategies: cherry-pick, then merge commit checkout
 echo "Step 3/3: Apply fix and run all tests (expect ALL PASS)..."
-FIX_CMD="cd ${WORKDIR} && git cherry-pick --no-commit ${FIX_COMMIT}"
+FIX_CMD="cd ${WORKDIR} && (git cherry-pick --no-commit ${FIX_COMMIT} 2>/dev/null || git checkout ${MERGE_COMMIT} -- . 2>/dev/null || git checkout ${FIX_COMMIT} -- . 2>/dev/null)"
 if docker run --rm "${IMAGE_NAME}" bash -c "${FIX_CMD} && /opt/test-suite/run_tests.sh all" 2>&1; then
     echo -e "${GREEN}Step 3 PASSED${NC}"
 else

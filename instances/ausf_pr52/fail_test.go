@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSuciSupiMap_ExistenceCheck(t *testing.T) {
+func TestSuciSupiMap_ResyncExistenceCheck(t *testing.T) {
 	srcPath := "ue_authentication.go"
 	data, err := os.ReadFile(srcPath)
 	if err != nil {
@@ -14,15 +14,19 @@ func TestSuciSupiMap_ExistenceCheck(t *testing.T) {
 	}
 	src := string(data)
 
-	// The bug: GetSupiFromSuciSupiMap is called without first checking if the
-	// SUCI-SUPI pair exists, leading to nil interface type assertion panic.
+	// The bug: In the resynchronization code path, GetSupiFromSuciSupiMap
+	// is called without checking if the mapping exists.
+	// The fix adds: CheckIfSuciSupiPairExists(supiOrSuci)
 	//
-	// The fix adds a CheckIfSuciSupiPairExists guard before the call.
-
-	if !strings.Contains(src, "CheckIfSuciSupiPairExists") {
-		t.Fatal("BUG: no CheckIfSuciSupiPairExists guard before GetSupiFromSuciSupiMap. " +
-			"Missing SUCI-SUPI mapping will cause nil interface type assertion panic.")
+	// Note: CheckIfSuciSupiPairExists already exists for OTHER code paths
+	// (eapSessionID, ConfirmationDataResponseID), so we must check for
+	// the specific resync pattern: CheckIfSuciSupiPairExists(supiOrSuci)
+	if !strings.Contains(src, "CheckIfSuciSupiPairExists(supiOrSuci)") {
+		t.Fatal("BUG: missing CheckIfSuciSupiPairExists(supiOrSuci) guard in resync path.\n" +
+			"When resynchronization request arrives without prior context,\n" +
+			"GetSupiFromSuciSupiMap returns nil causing interface assertion panic.\n" +
+			"Fix: add CheckIfSuciSupiPairExists(supiOrSuci) before GetSupiFromSuciSupiMap")
 	}
 
-	t.Log("PASS: CheckIfSuciSupiPairExists guard found in ue_authentication.go")
+	t.Log("PASS: resync path has CheckIfSuciSupiPairExists(supiOrSuci) guard")
 }

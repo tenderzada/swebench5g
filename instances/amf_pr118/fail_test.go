@@ -14,15 +14,14 @@ func TestDecodePlainNas_PayloadLengthCheck(t *testing.T) {
 	}
 	src := string(data)
 
-	// The bug: DecodePlainNasNoIntegrityCheck slices payload[:7] without
-	// checking if len(payload) >= 7, causing an index out of range panic.
-	//
-	// The fix adds: if len(payload) < 7 { return nil, fmt.Errorf("nas payload is too short") }
-
-	if !strings.Contains(src, "len(payload) < 7") && !strings.Contains(src, "payload is too short") {
-		t.Fatal("BUG: DecodePlainNasNoIntegrityCheck does not check len(payload) < 7. " +
-			"Short NAS payloads will cause index out of range panic.")
+	// The fix adds exactly: if len(payload) < 7
+	// We must search for this specific pattern, NOT "payload is too short"
+	// because that string already exists for other checks (line 120, 138).
+	if !strings.Contains(src, "len(payload) < 7") {
+		t.Fatal("BUG: DecodePlainNasNoIntegrityCheck does not check len(payload) < 7.\n" +
+			"Short NAS payloads will cause slice bounds out of range panic.\n" +
+			"Fix: add `if len(payload) < 7 { return nil, fmt.Errorf(...) }` before payload[7:]")
 	}
 
-	t.Log("PASS: payload length check found in security.go")
+	t.Log("PASS: len(payload) < 7 check found in security.go")
 }
