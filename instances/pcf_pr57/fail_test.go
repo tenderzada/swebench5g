@@ -7,72 +7,47 @@ import (
 )
 
 func TestDeletePolicies_MissingReturnAfterErrorResponse(t *testing.T) {
-	srcPath := "ampolicy.go"
-	data, err := os.ReadFile(srcPath)
+	data, err := os.ReadFile("ampolicy.go")
 	if err != nil {
-		t.Fatalf("failed to read source file: %v", err)
+		t.Fatalf("failed to read ampolicy.go: %v", err)
 	}
 	src := string(data)
 
-	// The bug: HandleDeletePoliciesPolAssoId is missing a `return` after
-	// c.JSON(int(problemDetails.Status), problemDetails) in the "polAssoId not found"
-	// error block. This causes a nil pointer dereference by falling through.
+	// The bug: after sending error response for "polAssoId not found",
+	// there is no `return`, so code falls through to delete(ue.AMPolicyData, ...)
+	// causing nil pointer dereference.
 	//
-	// The fix adds a `return` statement after that c.JSON call.
-	// We check that the error handling block has a return after c.JSON.
+	// Buggy code:
+	//   c.JSON(int(problemDetails.Status), problemDetails)
+	//   }                    ← missing return here
+	//   delete(ue.AMPolicyData, polAssoId)  ← crashes
+	//
+	// Fixed code:
+	//   c.JSON(int(problemDetails.Status), problemDetails)
+	//   return               ← added
+	//   }
 
-	// Find the block where problemDetails is sent as JSON response for not-found.
-	// After the fix, there must be a `return` between that c.JSON line and the
-	// next meaningful code. We verify by checking that within a window after
-	// "polAssoId not found" or the c.JSON line, a `return` exists.
-
-	idx := strings.Index(src, "problemDetails.Status")
-	if idx == -1 {
-		t.Fatal("BUG: could not find problemDetails.Status in source")
+	// Find the "polAssoId not found" block
+	notFoundIdx := strings.Index(src, "polAssoId not found")
+	if notFoundIdx == -1 {
+		t.Fatal("could not find 'polAssoId not found' in ampolicy.go")
 	}
 
-	// Look at the code after the c.JSON call (within the next 200 chars).
-	// In the fixed version, there should be a `return` before the next function logic.
-	window := src[idx:]
-	if len(window) > 300 {
-		window = window[:300]
+	// Look at the 500 chars after "polAssoId not found"
+	// In fixed version: there must be a `return` before `delete(`
+	after := src[notFoundIdx:]
+	if len(after) > 500 {
+		after = after[:500]
 	}
 
-	// Find c.JSON line, then check for return after it
-	jsonIdx := strings.Index(window, "c.JSON")
-	if jsonIdx == -1 {
-		// c.JSON might be before our index, search a broader area
-		broadStart := idx - 100
-		if broadStart < 0 {
-			broadStart = 0
-		}
-		window = src[broadStart : idx+300]
+	deleteIdx := strings.Index(after, "delete(")
+	returnIdx := strings.Index(after, "return")
+
+	if returnIdx == -1 || (deleteIdx != -1 && returnIdx > deleteIdx) {
+		t.Fatal("BUG: missing 'return' after error response for 'polAssoId not found'.\n" +
+			"Code falls through to delete(ue.AMPolicyData, polAssoId) causing nil pointer dereference.\n" +
+			"Fix: add 'return' after c.JSON error response in HandleDeletePoliciesPolAssoId")
 	}
 
-	// After the c.JSON(...) call in the error block, the fix adds `return`.
-	// Look for `return` appearing after `c.JSON` in this region.
-	cjsonIdx := strings.Index(window, "c.JSON")
-	if cjsonIdx == -1 {
-		t.Fatal("BUG: could not find c.JSON near problemDetails.Status")
-	}
-
-	afterJSON := window[cjsonIdx:]
-	// Find the end of the c.JSON line
-	newlineIdx := strings.Index(afterJSON, "\n")
-	if newlineIdx == -1 {
-		t.Fatal("BUG: unexpected source format")
-	}
-
-	// Check the next few lines after c.JSON for a `return`
-	remaining := afterJSON[newlineIdx:]
-	if len(remaining) > 150 {
-		remaining = remaining[:150]
-	}
-
-	if !strings.Contains(remaining, "return") {
-		t.Fatal("BUG: missing 'return' after c.JSON error response in HandleDeletePoliciesPolAssoId. " +
-			"Without return, code falls through and causes nil pointer dereference.")
-	}
-
-	t.Log("PASS: 'return' found after c.JSON error response")
+	t.Log("PASS: 'return' found between error response and delete() in ampolicy.go")
 }
