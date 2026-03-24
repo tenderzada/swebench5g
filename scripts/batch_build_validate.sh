@@ -16,6 +16,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 INSTANCES_DIR="${PROJECT_ROOT}/instances"
+LOG_DIR="${PROJECT_ROOT}/tmp"
+mkdir -p "${LOG_DIR}"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -89,12 +91,12 @@ for i in "${!TARGETS[@]}"; do
     if [ "$VALIDATE_ONLY" = false ]; then
         echo "  Building..."
         rm -rf "${INSTANCES_DIR}/${ID}/.build"
-        if bash "${SCRIPT_DIR}/build_instance.sh" "$CONFIG" > "/tmp/swebench5g_build_${ID}.log" 2>&1; then
+        if bash "${SCRIPT_DIR}/build_instance.sh" "$CONFIG" > "${LOG_DIR}/swebench5g_build_${ID}.log" 2>&1; then
             echo -e "  ${GREEN}Build: OK${NC}"
         else
             echo -e "  ${RED}Build: FAILED${NC}"
-            echo "  Log: /tmp/swebench5g_build_${ID}.log"
-            tail -5 "/tmp/swebench5g_build_${ID}.log" | sed 's/^/  /'
+            echo "  Log: ${LOG_DIR}/swebench5g_build_${ID}.log"
+            tail -5 "${LOG_DIR}/swebench5g_build_${ID}.log" | sed 's/^/  /'
             FAIL=$((FAIL + 1))
             RESULTS+=("${ID}: BUILD FAILED")
             echo ""
@@ -105,14 +107,14 @@ for i in "${!TARGETS[@]}"; do
     # Validate
     if [ "$BUILD_ONLY" = false ]; then
         echo "  Validating..."
-        if bash "${SCRIPT_DIR}/validate_instance.sh" "$CONFIG" > "/tmp/swebench5g_validate_${ID}.log" 2>&1; then
+        if bash "${SCRIPT_DIR}/validate_instance.sh" "$CONFIG" > "${LOG_DIR}/swebench5g_validate_${ID}.log" 2>&1; then
             echo -e "  ${GREEN}Validate: PASSED${NC}"
             PASS=$((PASS + 1))
             RESULTS+=("${ID}: PASSED")
         else
             echo -e "  ${RED}Validate: FAILED${NC}"
-            echo "  Log: /tmp/swebench5g_validate_${ID}.log"
-            grep -E "Step [0-9]|FAILED|PASSED|panic|Error" "/tmp/swebench5g_validate_${ID}.log" | tail -5 | sed 's/^/  /'
+            echo "  Log: ${LOG_DIR}/swebench5g_validate_${ID}.log"
+            grep -E "Step [0-9]|FAILED|PASSED|panic|Error" "${LOG_DIR}/swebench5g_validate_${ID}.log" | tail -5 | sed 's/^/  /'
             FAIL=$((FAIL + 1))
             RESULTS+=("${ID}: VALIDATE FAILED")
         fi
@@ -153,8 +155,8 @@ for r in "${RESULTS[@]}"; do
 done
 echo "============================================"
 echo ""
-echo " Build logs: /tmp/swebench5g_build_*.log"
-echo " Validate logs: /tmp/swebench5g_validate_*.log"
+echo " Build logs: ${LOG_DIR}/swebench5g_build_*.log"
+echo " Validate logs: ${LOG_DIR}/swebench5g_validate_*.log"
 
 # Exit with failure if any failed
 [ $FAIL -eq 0 ]
