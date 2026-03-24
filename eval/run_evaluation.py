@@ -276,26 +276,78 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     if '---' not in diff_content and '@@' not in diff_content:
         return False, f"Qwen response is not a valid diff (length={len(reply)}). Debug: {debug_path}"
 
-    # Apply the patch
+    # Apply the patch — try multiple strategies
     b64 = base64.b64encode(diff_content.encode('utf-8')).decode('ascii')
-    rc, stdout, stderr = docker_exec(
+
+    # Strategy 1: strict git apply
+    rc, out1, _ = docker_exec(
         container_id,
-        f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply --verbose /tmp/qwen.patch 2>&1",
+        f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply /tmp/qwen.patch 2>&1",
         timeout=30
     )
     if rc == 0:
         return True, ""
 
-    # If strict apply fails, try with --3way or fuzz
-    rc2, stdout2, stderr2 = docker_exec(
+    # Strategy 2: git apply with fuzzy matching
+    rc, out2, _ = docker_exec(
         container_id,
-        f"cd {workdir} && git apply --verbose --3way /tmp/qwen.patch 2>&1 || git apply --verbose -C0 /tmp/qwen.patch 2>&1",
+        f"cd {workdir} && git apply -C0 --recount /tmp/qwen.patch 2>&1",
         timeout=30
     )
-    if rc2 == 0:
+    if rc == 0:
         return True, ""
 
-    return False, f"git apply failed: {(stdout + stderr + stdout2 + stderr2)[:300]}. Debug: {debug_path}"
+    # Strategy 3: extract added lines from diff and apply via Python script
+    # This handles LLM-generated patches where context lines don't match exactly
+    apply_script = r'''
+import re, sys
+with open("/tmp/qwen.patch") as f:
+    patch = f.read()
+# Parse each file in the diff
+file_pattern = r'--- a/(.+?)\n\+\+\+ b/(.+?)\n((?:@@.*?(?=\n--- |\Z))+)'
+for m in re.finditer(file_pattern, patch, re.DOTALL):
+    target = m.group(2)
+    hunks = m.group(3)
+    # For each hunk, find context lines and insert added lines
+    for hunk in re.finditer(r'@@[^@]*@@[^\n]*\n(.*?)(?=\n@@|\Z)', hunks, re.DOTALL):
+        lines = hunk.group(1).split("\n")
+        # Find the first context line (no +/- prefix) to anchor
+        anchor = None
+        add_after_anchor = []
+        for line in lines:
+            if line.startswith(" ") and not anchor:
+                anchor = line[1:]  # strip leading space
+            elif line.startswith("+"):
+                add_after_anchor.append(line[1:])
+        if anchor and add_after_anchor:
+            fullpath = "''' + workdir + r'''/" + target
+            try:
+                with open(fullpath) as sf:
+                    src = sf.read()
+                # Find anchor and insert after it
+                idx = src.find(anchor)
+                if idx >= 0:
+                    insert_pos = src.index("\n", idx) + 1
+                    insert_text = "\n".join(add_after_anchor) + "\n"
+                    src = src[:insert_pos] + insert_text + src[insert_pos:]
+                    with open(fullpath, "w") as sf:
+                        sf.write(src)
+                    print(f"Applied to {target}")
+                    sys.exit(0)
+            except Exception as e:
+                print(f"Error: {e}")
+sys.exit(1)
+'''
+    apply_b64 = base64.b64encode(apply_script.encode('utf-8')).decode('ascii')
+    rc, out3, _ = docker_exec(
+        container_id,
+        f"echo '{apply_b64}' | base64 -d > /tmp/apply_patch.py && python3 /tmp/apply_patch.py 2>&1",
+        timeout=30
+    )
+    if rc == 0:
+        return True, ""
+
+    return False, f"All apply strategies failed. Debug: {debug_path}\n{out1}\n{out2}\n{out3}"
 
 
 def _run_manual_patch(container_id, workdir):
