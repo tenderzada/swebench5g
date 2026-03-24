@@ -205,12 +205,23 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
 
     system_prompt = (
         "You are an expert Go developer fixing bugs in the free5GC 5G core network. "
-        "Read the bug description and source code, then output ONLY the corrected file(s). "
-        "For each file you modify, output in this exact format:\n\n"
-        "=== FILE: <relative/path/to/file.go> ===\n"
-        "<complete file content>\n"
-        "=== END FILE ===\n\n"
-        "Do NOT modify test files. Only fix the bug described."
+        "Read the bug description and source code, then output ONLY a unified diff patch. "
+        "Output the patch in standard `diff -u` / `git diff` format:\n\n"
+        "```diff\n"
+        "--- a/<relative/path/to/file.go>\n"
+        "+++ b/<relative/path/to/file.go>\n"
+        "@@ -line,count +line,count @@\n"
+        " context line\n"
+        "-removed line\n"
+        "+added line\n"
+        " context line\n"
+        "```\n\n"
+        "Rules:\n"
+        "- Output ONLY the diff, no explanations before or after.\n"
+        "- Use correct relative paths from the project root.\n"
+        "- Include 3 lines of context around each change.\n"
+        "- Do NOT modify test files.\n"
+        "- Keep changes minimal — only fix the described bug."
     )
 
     user_prompt = f"## Bug Description\n\n{problem}\n\n## Source Files\n{files_text}"
@@ -249,71 +260,42 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     except Exception:
         pass
 
-    # Step 5: Parse response and apply file changes
+    # Step 5: Extract diff from response and apply via git apply
     import re
-    matches = []
+    import base64
 
-    # Format 1a: === FILE: path === ... === END FILE === (complete)
-    file_pattern = r'=== FILE: (.+?) ===\n(.*?)\n=== END FILE ==='
-    matches = re.findall(file_pattern, reply, re.DOTALL)
+    # Extract diff content — may be wrapped in ```diff ... ``` or bare
+    diff_content = reply.strip()
 
-    # Format 1b: === FILE: path === but no END marker (truncated by max_tokens)
-    if not matches:
-        start_pattern = r'=== FILE: (.+?) ===\n(.*)'
-        m = re.search(start_pattern, reply, re.DOTALL)
-        if m:
-            matches = [(m.group(1), m.group(2).rstrip())]
+    # Strip markdown code fence if present
+    fence_match = re.search(r'```(?:diff)?\s*\n(.*?)```', diff_content, re.DOTALL)
+    if fence_match:
+        diff_content = fence_match.group(1).strip()
 
-    # Format 2: ```go with filename in preceding line
-    if not matches:
-        alt_pattern = r'(?:`{3,})(?:go)?\s*\n(.*?)(?:`{3,})'
-        code_blocks = re.findall(alt_pattern, reply, re.DOTALL)
-        # Try to find filename references before code blocks
-        fname_pattern = r'[`*]*([a-zA-Z_/]+\.go)[`*]*'
-        fnames = re.findall(fname_pattern, reply)
-        if code_blocks and fnames:
-            # Match code blocks with filenames
-            for i, block in enumerate(code_blocks):
-                if block.strip() and len(block.strip()) > 50:  # skip tiny snippets
-                    fname = fnames[min(i, len(fnames)-1)]
-                    if not fname.startswith("/"):
-                        matches.append((fname, block))
+    # Ensure it looks like a diff (has --- or @@ markers)
+    if '---' not in diff_content and '@@' not in diff_content:
+        return False, f"Qwen response is not a valid diff (length={len(reply)}). Debug: {debug_path}"
 
-    # Format 3: diff/patch format - extract the target file and apply
-    if not matches and ("diff --git" in reply or "@@" in reply):
-        # Save as patch and apply via git apply
-        import base64
-        b64 = base64.b64encode(reply.encode('utf-8')).decode('ascii')
-        rc, _, err = docker_exec(
-            container_id,
-            f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply /tmp/qwen.patch",
-            timeout=30
-        )
-        if rc == 0:
-            return True, ""
+    # Apply the patch
+    b64 = base64.b64encode(diff_content.encode('utf-8')).decode('ascii')
+    rc, stdout, stderr = docker_exec(
+        container_id,
+        f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply --verbose /tmp/qwen.patch 2>&1",
+        timeout=30
+    )
+    if rc == 0:
+        return True, ""
 
-    if not matches:
-        return False, f"Could not parse file changes from Qwen response (length={len(reply)}). Debug: {debug_path}"
+    # If strict apply fails, try with --3way or fuzz
+    rc2, stdout2, stderr2 = docker_exec(
+        container_id,
+        f"cd {workdir} && git apply --verbose --3way /tmp/qwen.patch 2>&1 || git apply --verbose -C0 /tmp/qwen.patch 2>&1",
+        timeout=30
+    )
+    if rc2 == 0:
+        return True, ""
 
-    applied = 0
-    for rel_path, content in matches:
-        rel_path = rel_path.strip()
-        full_path = f"{workdir}/{rel_path}"
-        # Write file via base64 to avoid heredoc escaping issues
-        import base64
-        b64 = base64.b64encode(content.encode('utf-8')).decode('ascii')
-        rc, _, err = docker_exec(
-            container_id,
-            f"echo '{b64}' | base64 -d > {full_path}",
-            timeout=30
-        )
-        if rc == 0:
-            applied += 1
-
-    if applied == 0:
-        return False, "No files successfully written to container"
-
-    return True, ""
+    return False, f"git apply failed: {(stdout + stderr + stdout2 + stderr2)[:300]}. Debug: {debug_path}"
 
 
 def _run_manual_patch(container_id, workdir):
