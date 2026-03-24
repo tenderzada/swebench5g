@@ -258,12 +258,13 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     for rel_path, content in matches:
         rel_path = rel_path.strip()
         full_path = f"{workdir}/{rel_path}"
-        # Write the file content to the container
-        escaped = content.replace("'", "'\\''")
+        # Write file via base64 to avoid heredoc escaping issues
+        import base64
+        b64 = base64.b64encode(content.encode('utf-8')).decode('ascii')
         rc, _, err = docker_exec(
             container_id,
-            f"cat > {full_path} << 'QWEN_EOF'\n{content}\nQWEN_EOF",
-            timeout=10
+            f"echo '{b64}' | base64 -d > {full_path}",
+            timeout=30
         )
         if rc == 0:
             applied += 1
