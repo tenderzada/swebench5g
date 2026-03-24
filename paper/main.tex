@@ -274,35 +274,64 @@ UPF  & User Plane (planned)          & 0 \\
 
 \subsection{Experimental Setup}
 
-We evaluate on the 10 validated instances with multiple frontier coding agents.
+We evaluate on the pilot task instance (\texttt{pilot\_pcf\_879}) with an initial agent configuration, and report preliminary findings. Full evaluation across all 10 instances with multiple agents is ongoing.
 
-\paragraph{Agent configurations.}
-\begin{itemize}
-    \item Claude Code (Claude Opus 4.6)
-    \item Cursor Agent (Claude Sonnet 4.6)
-    \item OpenAI Codex CLI (GPT-4.1)
-\end{itemize}
+\paragraph{Agent configuration.} We evaluate \textbf{Qwen3.5-Flash} \citep{qwen2025} via the DashScope API in a \emph{single-turn, non-agentic} setting: the model receives the problem statement and source code, and must output a code edit in one response. This tests the model's ability to diagnose and fix 5G bugs without iterative tool use.
+
+\paragraph{Evaluation protocol.} For each instance:
+\begin{enumerate}
+    \item Start a Docker container from the task image.
+    \item Read all \texttt{.go} source files (with line numbers) from the container.
+    \item Send the problem statement and source code to the model API.
+    \item Parse the model's response and apply code changes to the container.
+    \item Run the full test suite (\texttt{PASS\_TO\_PASS} + \texttt{FAIL\_TO\_PASS}).
+\end{enumerate}
 
 \paragraph{Evaluation metric.} Following SWE-Bench, we use the binary \emph{resolve rate}: an instance is \emph{resolved} if and only if (1) all \texttt{FAIL\_TO\_PASS} tests pass and (2) all \texttt{PASS\_TO\_PASS} tests continue to pass after applying the agent's patch.
 
-\subsection{Results}
+\subsection{Preliminary Results}
 
 \begin{table}[h]
 \centering
-\caption{Baseline results on 10 validated instances (to be populated).}
+\caption{Preliminary baseline results on pilot task instance.}
 \label{tab:results}
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
-\textbf{Agent} & \textbf{Model} & \textbf{Resolve Rate} & \textbf{Avg. Time (s)} \\
+\textbf{Model} & \textbf{Mode} & \textbf{Resolve Rate} & \textbf{Bug Located?} & \textbf{Avg. Time (s)} \\
 \midrule
-Claude Code   & Opus 4.6    & TBD & TBD \\
-Cursor Agent  & Sonnet 4.6  & TBD & TBD \\
-Codex CLI     & GPT-4.1     & TBD & TBD \\
+Qwen3.5-Flash  & Single-turn API  & 0/1 (0\%) & Yes & 17.8 \\
+\midrule
+Claude Code    & Agentic CLI      & TBD & TBD & TBD \\
+Cursor Agent   & Agentic IDE      & TBD & TBD & TBD \\
+Codex CLI      & Agentic CLI      & TBD & TBD & TBD \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textit{Note: Baseline results will be populated upon completion of evaluation runs. We anticipate that easy, single-NF tasks will have moderate resolve rates, while the domain-specific nature of the bugs (3GPP specification knowledge, Go idioms for nil handling) will present challenges distinct from general-purpose benchmarks.}
+\subsection{Analysis: Why Qwen3.5-Flash Located But Failed to Fix}
+
+Across 7 evaluation iterations on the pilot task, Qwen3.5-Flash consistently demonstrated the ability to \textbf{correctly identify the bug}---in every attempt, it proposed adding a nil check for the \texttt{routeReq} parameter in \texttt{provisioningOfTrafficRoutingInfo()}, which is the exact fix applied in the ground-truth PR. However, the model \textbf{failed to produce a correctly applicable patch} in all attempts. Table~\ref{tab:failure_modes} summarizes the failure modes observed.
+
+\begin{table}[h]
+\centering
+\caption{Failure mode analysis for Qwen3.5-Flash on pilot\_pcf\_879 (7 attempts).}
+\label{tab:failure_modes}
+\begin{tabular}{lp{7cm}c}
+\toprule
+\textbf{Failure Mode} & \textbf{Description} & \textbf{Attempts} \\
+\midrule
+Empty response & Thinking mode consumed all output; \texttt{content} field was null & 1 \\
+File truncation & Complete file output exceeded \texttt{max\_tokens}; file written incomplete & 1 \\
+Wrong insertion point & Correct fix inserted into wrong function (context line matched multiple locations) & 1 \\
+Code replacement & Model replaced correct surrounding code while adding the fix & 1 \\
+Format mismatch & Model output did not match expected structured format & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+These findings reveal a fundamental gap between \emph{bug comprehension} and \emph{precise code editing} in single-turn API mode. The model understands the 5G domain well enough to diagnose nil pointer dereferences and propose correct fixes, but lacks the iterative file navigation and editing capabilities that agentic tools (Claude Code, Cursor, Codex CLI) provide. This suggests that \textbf{agentic capabilities---not just model intelligence---are critical for resolving real-world 5G software engineering tasks}.
+
+This finding parallels SWE-Bench Mobile's observation that ``the same model shows up to $6\times$ performance gap across agents'' \citep{yao2025swebenchmobile}, and motivates our planned evaluation of full agentic systems (Claude Code, Cursor, Codex CLI) which can iteratively read files, make targeted edits, and verify their changes.
 
 \section{Challenges and Lessons Learned}
 

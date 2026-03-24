@@ -455,6 +455,64 @@ Total: 10 | Resolved: 4 (40.0%)
 - 按 bug 类型（空指针 vs 逻辑错误 vs 协议违规）
 - 按是否涉及 3GPP 规范知识
 
+### 5.5 初步评测结果：Qwen3.5-Flash
+
+我们在 pilot 任务（PCF Issue #879）上使用 **Qwen3.5-Flash**（通过 DashScope API，单轮非 Agent 模式）进行了 7 轮评测。
+
+#### 结果
+
+| 模型 | 模式 | Resolve Rate | 能否定位 Bug | 平均耗时 |
+|------|------|-------------|-------------|---------|
+| Qwen3.5-Flash | 单轮 API | **0%** (0/1) | **能** | 17.8s |
+
+#### 关键发现
+
+**Qwen3.5-Flash 能正确定位 bug，但无法精确修复。**
+
+在 7 次尝试中，Qwen **每次都正确识别了 bug**——建议在 `provisioningOfTrafficRoutingInfo()` 函数中添加 `if routeReq == nil` 检查，这与官方 PR 的修复完全一致。但没有一次成功产出可正确应用的补丁。
+
+#### 失败模式分析
+
+| 失败模式 | 说明 | 次数 |
+|---------|------|------|
+| 空响应 | thinking 模式消耗所有 token，content 为 null | 1 |
+| 文件截断 | 完整文件输出超过 max_tokens | 1 |
+| 插入错误位置 | 上下文行匹配到文件中其他位置 | 1 |
+| 替换正确代码 | 添加修复时删除了不该删的代码 | 1 |
+| 格式不匹配 | 输出格式与解析器不一致 | 3 |
+
+#### 启示
+
+> **Agent 能力（而非模型智能）是解决 5G 软件工程任务的关键。**
+
+单轮 API 调用模式下，模型缺乏：
+- 迭代地读取和浏览代码的能力
+- 精确编辑文件特定行的能力
+- 编辑后自行验证的能力
+
+这与 SWE-Bench Mobile 的发现一致："同一模型在不同 Agent 中表现差异高达 6 倍"。后续将评测 Claude Code、Cursor 等 Agent 模式工具。
+
+#### 运行 Qwen 评测
+
+```bash
+# 设置环境
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
+export DASHSCOPE_API_KEY=sk-xxxx
+
+# 评测单个实例
+python eval/run_evaluation.py \
+  --agent qwen \
+  --model qwen3.5-flash \
+  --instances free5gc_pcf_issue879
+
+# 评测所有实例
+python eval/run_evaluation.py --agent qwen --model qwen3.5-flash
+
+# 结果保存在
+eval/results/<timestamp>/results.json
+eval/results/<timestamp>/summary.txt
+```
+
 ---
 
 ## 六、项目结构
