@@ -253,9 +253,16 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     import re
     matches = []
 
-    # Format 1: === FILE: path === ... === END FILE ===
+    # Format 1a: === FILE: path === ... === END FILE === (complete)
     file_pattern = r'=== FILE: (.+?) ===\n(.*?)\n=== END FILE ==='
     matches = re.findall(file_pattern, reply, re.DOTALL)
+
+    # Format 1b: === FILE: path === but no END marker (truncated by max_tokens)
+    if not matches:
+        start_pattern = r'=== FILE: (.+?) ===\n(.*)'
+        m = re.search(start_pattern, reply, re.DOTALL)
+        if m:
+            matches = [(m.group(1), m.group(2).rstrip())]
 
     # Format 2: ```go with filename in preceding line
     if not matches:
