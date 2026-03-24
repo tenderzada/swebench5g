@@ -269,8 +269,8 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     if fence_match:
         clean = fence_match.group(1).strip()
 
-    # Parse FILE / SEARCH / REPLACE / END blocks
-    block_pattern = r'FILE:\s*(.+?)\s*\nSEARCH:\n(.*?)\nREPLACE:\n(.*?)\nEND'
+    # Parse FILE / SEARCH / REPLACE blocks (END marker optional)
+    block_pattern = r'FILE:\s*(.+?)\s*\nSEARCH:\n(.*?)\nREPLACE:\n(.*?)(?:\nEND|\Z)'
     blocks = re.findall(block_pattern, clean, re.DOTALL)
 
     if not blocks:
@@ -292,16 +292,16 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
         rel_path = rel_path.strip()
         full_path = f"{workdir}/{rel_path}"
 
-        # Read current file
+        # Read current file (without line numbers)
         rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
         if rc != 0:
             errors.append(f"Cannot read {rel_path}")
             continue
 
-        # Find and replace
         search_text = search.strip()
         replace_text = replace.strip()
 
+        # Strategy 1: exact match
         if search_text in current:
             new_content = current.replace(search_text, replace_text, 1)
             b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
@@ -315,7 +315,49 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
             else:
                 errors.append(f"Failed to write {rel_path}")
         else:
-            errors.append(f"SEARCH block not found in {rel_path} (len={len(search_text)})")
+            # Strategy 2: fuzzy match — find the most unique lines from SEARCH
+            # and locate them in the file, then replace the surrounding block
+            search_lines = [l for l in search_text.splitlines() if l.strip()]
+            replace_lines_text = replace_text
+
+            # Try to find a unique anchor line (not common like "}" or "return")
+            anchor = None
+            for line in search_lines:
+                stripped = line.strip()
+                if len(stripped) > 15 and current.count(stripped) == 1:
+                    anchor = stripped
+                    break
+
+            if anchor:
+                # Find the anchor in source and replace lines around it
+                # Use the first and last meaningful SEARCH lines as boundaries
+                first_line = search_lines[0].strip()
+                last_line = search_lines[-1].strip()
+
+                start_idx = current.find(anchor)
+                if start_idx >= 0:
+                    # Expand to find the block boundaries
+                    block_start = current.rfind('\n', 0, start_idx) + 1
+                    # Find a reasonable end (look for last search line after anchor)
+                    block_end = current.find(last_line, start_idx)
+                    if block_end >= 0:
+                        block_end = current.index('\n', block_end) + 1
+                    else:
+                        block_end = current.index('\n', start_idx) + 1
+
+                    original_block = current[block_start:block_end]
+                    new_content = current[:block_start] + replace_lines_text + '\n' + current[block_end:]
+                    b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
+                    rc, _, _ = docker_exec(
+                        container_id,
+                        f"echo '{b64}' | base64 -d > {full_path}",
+                        timeout=30
+                    )
+                    if rc == 0:
+                        applied += 1
+                        continue
+
+            errors.append(f"SEARCH block not found in {rel_path} (exact or fuzzy)")
 
     if applied > 0:
         return True, ""
