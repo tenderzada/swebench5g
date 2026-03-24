@@ -216,6 +216,8 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     user_prompt = f"## Bug Description\n\n{problem}\n\n## Source Files\n{files_text}"
 
     # Step 4: Call Qwen API
+    # Qwen3.5-Flash uses thinking mode by default. We disable it for
+    # structured output, or handle both content and reasoning_content.
     try:
         response = client.chat.completions.create(
             model=model or "qwen3.5-flash",
@@ -223,12 +225,21 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt[:60000]},  # token limit safety
             ],
-            temperature=0.1,
+            temperature=0.7,
             max_tokens=16000,
+            extra_body={"enable_thinking": False},  # disable thinking for direct output
         )
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content or ""
+        # If content is empty, try reasoning_content (thinking mode fallback)
+        if not reply.strip():
+            reasoning = getattr(response.choices[0].message, 'reasoning_content', '') or ''
+            if reasoning:
+                reply = reasoning
     except Exception as e:
         return False, f"Qwen API error: {str(e)[:300]}"
+
+    if not reply.strip():
+        return False, "Qwen returned empty response"
 
     # Step 5: Parse response and apply file changes
     import re
