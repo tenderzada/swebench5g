@@ -12,5 +12,7 @@
   "spec": "3GPP TS 29.509 (AUSF UE Authentication)",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
-  "description": "AUSF panic on nil interface conversion when SuciSupiMap doesn't exist during authentication resynchronization. GetSupiFromSuciSupiMap is called without checking existence first."
+  "description": "AUSF panic on nil interface conversion when SuciSupiMap doesn't exist during authentication resynchronization. GetSupiFromSuciSupiMap is called without checking existence first.",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

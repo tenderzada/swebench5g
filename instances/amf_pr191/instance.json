@@ -12,5 +12,7 @@
   "spec": "3GPP TS 29.518 (UE Context Create)",
   "difficulty": "easy",
   "bug_type": "index-out-of-range",
-  "description": "AMF panic when RestrictedRatList is empty. Code accesses RestrictedRatList[0] without checking the length of the slice."
+  "description": "AMF panic when RestrictedRatList is empty. Code accesses RestrictedRatList[0] without checking the length of the slice.",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

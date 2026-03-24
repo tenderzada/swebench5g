@@ -1,75 +1,28 @@
 package processor_test
 
-// fail_test.go: Demonstrates the nil interface type assertion panic in
-// UeAuthPostRequestProcedure when SuciSupiMap doesn't exist during resync.
-//
-// On the buggy (parent) commit, the code calls:
-//
-//   supiOrSuci := GetSupiFromSuciSupiMap(suciSupiMap, suci)
-//   // supiOrSuci is nil interface when the mapping doesn't exist
-//   supi := supiOrSuci.(string)   // PANIC: interface conversion: nil
-//
-// The fix adds CheckIfSuciSupiPairExists and CheckIfAusfUeContextExists
-// guards before calling GetSupiFromSuciSupiMap.
-
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
-// simulateSuciSupiMap represents the SUCI-to-SUPI mapping store.
-type simulateSuciSupiMap map[string]interface{}
-
-func getSupiFromMap(m simulateSuciSupiMap, suci string) interface{} {
-	if val, ok := m[suci]; ok {
-		return val
+func TestSuciSupiMap_ExistenceCheck(t *testing.T) {
+	srcPath := "ue_authentication.go"
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("failed to read source file: %v", err)
 	}
-	return nil
-}
+	src := string(data)
 
-// TestNilInterfaceTypeAssertion reproduces the panic that occurs when
-// GetSupiFromSuciSupiMap returns nil and the code type-asserts it to string.
-func TestNilInterfaceTypeAssertion(t *testing.T) {
-	suciSupiMap := simulateSuciSupiMap{}
-	suci := "suci-0-001-01-0000-0-0-0000000001"
+	// The bug: GetSupiFromSuciSupiMap is called without first checking if the
+	// SUCI-SUPI pair exists, leading to nil interface type assertion panic.
+	//
+	// The fix adds a CheckIfSuciSupiPairExists guard before the call.
 
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("BUG REPRODUCED: panic on nil interface type assertion: %v", r)
-		}
-	}()
-
-	// This simulates the buggy code path: the mapping doesn't exist,
-	// so getSupiFromMap returns nil, and the type assertion panics.
-	supiOrSuci := getSupiFromMap(suciSupiMap, suci)
-
-	// BUG: no existence check before type assertion.
-	// The fix adds guards: CheckIfSuciSupiPairExists / CheckIfAusfUeContextExists
-	_ = supiOrSuci.(string) // PANIC: interface conversion: interface is nil, not string
-}
-
-// TestExistingSupiMapEntry verifies the normal path when mapping exists.
-func TestExistingSupiMapEntry(t *testing.T) {
-	suciSupiMap := simulateSuciSupiMap{
-		"suci-0-001-01-0000-0-0-0000000001": "imsi-001010000000001",
-	}
-	suci := "suci-0-001-01-0000-0-0-0000000001"
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Unexpected panic: %v", r)
-		}
-	}()
-
-	supiOrSuci := getSupiFromMap(suciSupiMap, suci)
-	if supiOrSuci == nil {
-		t.Fatal("Expected non-nil result from map lookup")
+	if !strings.Contains(src, "CheckIfSuciSupiPairExists") {
+		t.Fatal("BUG: no CheckIfSuciSupiPairExists guard before GetSupiFromSuciSupiMap. " +
+			"Missing SUCI-SUPI mapping will cause nil interface type assertion panic.")
 	}
 
-	supi, ok := supiOrSuci.(string)
-	if !ok {
-		t.Fatal("Expected string type assertion to succeed")
-	}
-	if supi != "imsi-001010000000001" {
-		t.Errorf("Expected 'imsi-001010000000001', got '%s'", supi)
-	}
+	t.Log("PASS: CheckIfSuciSupiPairExists guard found in ue_authentication.go")
 }

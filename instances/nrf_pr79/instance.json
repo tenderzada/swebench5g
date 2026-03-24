@@ -12,5 +12,7 @@
   "spec": "RFC 6749 (OAuth2), 3GPP TS 29.510 (NRF Access Token)",
   "difficulty": "easy",
   "bug_type": "crash",
-  "description": "NRF crashes on unknown form key in OAuth2 /oauth2/token endpoint. reflect.ValueOf.FieldByName(\"\").Set panics when the mapped field name is empty."
+  "description": "NRF crashes on unknown form key in OAuth2 /oauth2/token endpoint. reflect.ValueOf.FieldByName(\"\").Set panics when the mapped field name is empty.",
+  "test_package_dir": "internal/sbi",
+  "test_package_path": "internal/sbi"
 }

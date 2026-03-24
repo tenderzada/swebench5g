@@ -12,5 +12,7 @@
   "spec": "3GPP TS 29.518 (Namf_Communication N1N2MessageTransfer)",
   "difficulty": "easy",
   "bug_type": "nil-pointer-crash",
-  "description": "SMF segfault when calling N1N2MessageTransfer after gNB removed. statusCode is nil, but code dereferences it with switch *statusCode."
+  "description": "SMF segfault when calling N1N2MessageTransfer after gNB removed. statusCode is nil, but code dereferences it with switch *statusCode.",
+  "test_package_dir": "internal/sbi/processor",
+  "test_package_path": "internal/sbi/processor"
 }

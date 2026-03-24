@@ -1,59 +1,68 @@
 package processor_test
 
-// fail_test.go: Demonstrates the nil-pointer dereference bug in
-// requestAMFToReleasePDUResources when statusCode is nil after a failed
-// N1N2MessageTransfer call.
-//
-// On the buggy (parent) commit, the code does:
-//
-//   statusCode, _, err := ...N1N2MessageTransfer(...)
-//   if err != nil {
-//       p.Log.Warnf(...)
-//       // BUG: no return here, falls through to:
-//   }
-//   switch *statusCode { ... }   // PANIC: nil pointer dereference
-//
-// The fix adds `return false, true` inside the `if err != nil` block so that
-// the nil statusCode is never dereferenced.
-
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
-// TestNilStatusCodeDereference reproduces the nil-pointer panic that occurs
-// when N1N2MessageTransfer returns an error with a nil statusCode.
-func TestNilStatusCodeDereference(t *testing.T) {
-	// Simulate the buggy code path: statusCode is nil after an error.
-	var statusCode *int = nil
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("BUG REPRODUCED: panic on nil statusCode dereference: %v", r)
-		}
-	}()
-
-	// In the fixed code, this block would contain `return` to prevent
-	// falling through to the switch statement below.
-	err := simulateN1N2Error()
+func TestN1N2MessageTransfer_ReturnOnError(t *testing.T) {
+	srcPath := "association.go"
+	data, err := os.ReadFile(srcPath)
 	if err != nil {
-		t.Logf("N1N2MessageTransfer returned error: %v", err)
-		// BUG: missing return here in the parent commit.
-		// The fix adds: return false, true
+		t.Fatalf("failed to read source file: %v", err)
+	}
+	src := string(data)
+
+	// The bug: After N1N2MessageTransfer returns an error, the code logs a warning
+	// but does not return. It falls through to `switch *statusCode` which panics
+	// because statusCode is nil.
+	//
+	// The fix adds `return false, true` inside the `if err != nil` block.
+
+	// Find the error handling block for N1N2MessageTransfer
+	idx := strings.Index(src, "N1N2MessageTransfer")
+	if idx == -1 {
+		t.Fatal("BUG: could not find N1N2MessageTransfer in source")
 	}
 
-	// This is the line that panics when statusCode is nil.
-	// In the real code: switch *statusCode { ... }
-	_ = *statusCode
-}
+	// Look at the code after N1N2MessageTransfer for the error handling block
+	after := src[idx:]
 
-func simulateN1N2Error() error {
-	return &mockError{msg: "connection refused: gNB removed"}
-}
+	// Find the `if err != nil` block after N1N2MessageTransfer
+	errIdx := strings.Index(after, "if err != nil")
+	if errIdx == -1 {
+		t.Fatal("BUG: could not find 'if err != nil' after N1N2MessageTransfer")
+	}
 
-type mockError struct {
-	msg string
-}
+	// Get the error block content (between `if err != nil {` and the next `}`)
+	errBlock := after[errIdx:]
+	// Find the closing brace of the if block
+	braceCount := 0
+	blockEnd := -1
+	for i, ch := range errBlock {
+		if ch == '{' {
+			braceCount++
+		} else if ch == '}' {
+			braceCount--
+			if braceCount == 0 {
+				blockEnd = i
+				break
+			}
+		}
+	}
 
-func (e *mockError) Error() string {
-	return e.msg
+	if blockEnd == -1 {
+		t.Fatal("BUG: could not parse error handling block")
+	}
+
+	errorHandlingBlock := errBlock[:blockEnd]
+
+	if !strings.Contains(errorHandlingBlock, "return") {
+		t.Fatal("BUG: missing 'return' in error handling block after N1N2MessageTransfer. " +
+			"When N1N2MessageTransfer fails, code falls through to 'switch *statusCode' " +
+			"causing nil pointer dereference.")
+	}
+
+	t.Log("PASS: 'return' found in N1N2MessageTransfer error handling block")
 }
