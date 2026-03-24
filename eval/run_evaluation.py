@@ -43,6 +43,10 @@ class EvalResult:
     time_seconds: float         # Wall-clock time
     error: str                  # Error message if any
     timestamp: str              # ISO timestamp
+    with_spec: bool = False     # Whether 3GPP spec was injected
+    tokens_used: int = 0        # Total tokens consumed (prompt + completion)
+    prompt_tokens: int = 0      # Prompt tokens
+    completion_tokens: int = 0  # Completion tokens
 
 
 def docker_exec(container_id: str, cmd: str, timeout: int = 600) -> tuple:
@@ -88,26 +92,34 @@ def run_agent_in_container(
     agent: str,
     model: str,
     workdir: str,
-    timeout: int = 1800
+    timeout: int = 1800,
+    with_spec: bool = False,
+    spec_path: str = ""
 ) -> tuple:
     """Run an AI agent inside the container to fix the bug.
 
-    Returns (success: bool, error: str).
+    Returns (success: bool, error: str, token_info: dict).
     Each agent type has its own invocation method.
     """
 
     # Read problem statement
     code, problem, _ = docker_exec(container_id, "cat /opt/task/problem_statement.md")
     if code != 0:
-        return False, "Failed to read problem statement"
+        return False, "Failed to read problem statement", {}
 
-    # Agent-specific invocation
+    # If with_spec, append 3GPP specification to problem statement
+    if with_spec and spec_path and os.path.exists(spec_path):
+        with open(spec_path, "r", encoding="utf-8") as f:
+            spec_content = f.read()
+        problem = problem + "\n\n## 3GPP Specification Reference\n\n" + spec_content
+
+    # Agent-specific invocation (all return: success, error, token_info)
     if agent == "claude-code":
-        return _run_claude_code(container_id, model, workdir, problem, timeout)
+        return _run_claude_code(container_id, model, workdir, problem, timeout), {}
     elif agent == "aider":
-        return _run_aider(container_id, model, workdir, problem, timeout)
+        return _run_aider(container_id, model, workdir, problem, timeout), {}
     elif agent == "codex-cli":
-        return _run_codex_cli(container_id, model, workdir, problem, timeout)
+        return _run_codex_cli(container_id, model, workdir, problem, timeout), {}
     elif agent == "qwen":
         return _run_qwen(container_id, model, workdir, problem, timeout)
     elif agent == "manual-patch":
@@ -238,16 +250,24 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
             extra_body={"enable_thinking": False},  # disable thinking for direct output
         )
         reply = response.choices[0].message.content or ""
+        # Track token usage
+        token_info = {}
+        if hasattr(response, 'usage') and response.usage:
+            token_info = {
+                "prompt_tokens": response.usage.prompt_tokens or 0,
+                "completion_tokens": response.usage.completion_tokens or 0,
+                "total_tokens": response.usage.total_tokens or 0,
+            }
         # If content is empty, try reasoning_content (thinking mode fallback)
         if not reply.strip():
             reasoning = getattr(response.choices[0].message, 'reasoning_content', '') or ''
             if reasoning:
                 reply = reasoning
     except Exception as e:
-        return False, f"Qwen API error: {str(e)[:300]}"
+        return False, f"Qwen API error: {str(e)[:300]}", {}
 
     if not reply.strip():
-        return False, "Qwen returned empty response"
+        return False, "Qwen returned empty response", token_info
 
     # Save raw response for debugging
     debug_path = f"/tmp/qwen_response_{int(time.time())}.txt"
@@ -361,11 +381,11 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
             timeout=30
         )
         if rc == 0:
-            return True, ""
+            return True, "", token_info
 
     if applied > 0:
-        return True, ""
-    return False, f"No edits applied ({len(inserts)} inserts, {len(replaces)} replaces, {len(searches)} searches). {'; '.join(errors)}. Debug: {debug_path}"
+        return True, "", token_info
+    return False, f"No edits applied ({len(inserts)} inserts, {len(replaces)} replaces, {len(searches)} searches). {'; '.join(errors)}. Debug: {debug_path}", token_info
 
 
 def _run_manual_patch(container_id, workdir):
@@ -392,16 +412,20 @@ def evaluate_instance(
     agent: str,
     model: str,
     timeout: int = 1800,
-    run_id: int = 1
+    run_id: int = 1,
+    with_spec: bool = False,
+    specs_dir: str = "specs"
 ) -> EvalResult:
     """Evaluate a single agent on a single task instance."""
 
     instance_id = instance["instance_id"]
     image_name = instance.get("image_url", f"swebench5g/free5gc:{instance_id}")
     workdir = instance.get("workdir", f"/opt/free5gc-pcf")
+    spec_path = os.path.join(specs_dir, f"{instance_id}.md") if with_spec else ""
+    spec_label = "+spec" if with_spec else "-spec"
 
     print(f"\n{'='*60}")
-    print(f"Evaluating: {instance_id} | Agent: {agent} | Model: {model} | Run: {run_id}")
+    print(f"Evaluating: {instance_id} | Agent: {agent} | Model: {model} | Run: {run_id} | Spec: {spec_label}")
     print(f"{'='*60}")
 
     container_id = None
@@ -426,10 +450,22 @@ def evaluate_instance(
             )
 
         # 3. Run agent
-        print(f"[3/5] Running {agent} ({model})...")
-        agent_ok, agent_error = run_agent_in_container(
-            container_id, agent, model, workdir, timeout
+        print(f"[3/5] Running {agent} ({model}) {spec_label}...")
+        result_tuple = run_agent_in_container(
+            container_id, agent, model, workdir, timeout,
+            with_spec=with_spec, spec_path=spec_path
         )
+        # Unpack — agent adapters return (success, error) or ((success, error), token_info)
+        token_info = {}
+        if isinstance(result_tuple, tuple) and len(result_tuple) == 3:
+            agent_ok, agent_error, token_info = result_tuple
+        elif isinstance(result_tuple, tuple) and len(result_tuple) == 2:
+            if isinstance(result_tuple[0], tuple):
+                (agent_ok, agent_error), token_info = result_tuple
+            else:
+                agent_ok, agent_error = result_tuple
+        else:
+            agent_ok, agent_error = False, "Unexpected return format"
 
         # 4. Extract patch
         print("[4/5] Extracting patch...")
@@ -460,7 +496,11 @@ def evaluate_instance(
             resolved=resolved, existing_tests_pass=existing_pass,
             fail_tests_pass=fail_pass, patch=patch,
             time_seconds=elapsed, error=agent_error,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            with_spec=with_spec,
+            tokens_used=token_info.get("total_tokens", 0),
+            prompt_tokens=token_info.get("prompt_tokens", 0),
+            completion_tokens=token_info.get("completion_tokens", 0),
         )
 
     except Exception as e:
@@ -518,11 +558,28 @@ def generate_report(results: list, output_dir: str):
 
     # By instance
     print(f"\n By instance:")
-    print(f" {'Instance':<30} {'Agent+Model':<25} {'Result':>10} {'Time':>8}")
-    print(f" {'-'*30} {'-'*25} {'-'*10} {'-'*8}")
+    print(f" {'Instance':<25} {'Agent+Model':<20} {'Spec':>5} {'Result':>10} {'Time':>7} {'Tokens':>8}")
+    print(f" {'-'*25} {'-'*20} {'-'*5} {'-'*10} {'-'*7} {'-'*8}")
     for r in results:
         status = "RESOLVED" if r.resolved else "FAILED"
-        print(f" {r.instance_id:<30} {r.agent}+{r.model:<14} {status:>10} {r.time_seconds:>7.1f}s")
+        spec = "+spec" if r.with_spec else "-spec"
+        print(f" {r.instance_id:<25} {r.agent}+{r.model:<9} {spec:>5} {status:>10} {r.time_seconds:>6.1f}s {r.tokens_used:>8}")
+
+    # A/B comparison (if both conditions present)
+    with_results = [r for r in results if r.with_spec]
+    without_results = [r for r in results if not r.with_spec]
+    if with_results and without_results:
+        print(f"\n Specification-as-Skill A/B Comparison:")
+        w_resolved = sum(1 for r in with_results if r.resolved)
+        wo_resolved = sum(1 for r in without_results if r.resolved)
+        w_rate = w_resolved / len(with_results) * 100
+        wo_rate = wo_resolved / len(without_results) * 100
+        delta = w_rate - wo_rate
+        w_tokens = sum(r.tokens_used for r in with_results) / len(with_results)
+        wo_tokens = sum(r.tokens_used for r in without_results) / len(without_results)
+        print(f"   Without spec: {wo_resolved}/{len(without_results)} ({wo_rate:.1f}%) avg_tokens={wo_tokens:.0f}")
+        print(f"   With spec:    {w_resolved}/{len(with_results)} ({w_rate:.1f}%) avg_tokens={w_tokens:.0f}")
+        print(f"   Delta:        {delta:+.1f}% resolve rate | {w_tokens-wo_tokens:+.0f} tokens")
 
     summary_path = os.path.join(output_dir, "summary.txt")
     # Also save as file
@@ -556,11 +613,19 @@ def main():
                         help="Timeout per instance in seconds (default: 1800)")
     parser.add_argument("--output", default="eval/results",
                         help="Output directory for results")
+    parser.add_argument("--with-spec", action="store_true",
+                        help="Inject 3GPP specification excerpts into problem statement")
+    parser.add_argument("--without-spec", action="store_true",
+                        help="Run without specification (default)")
+    parser.add_argument("--ab-test", action="store_true",
+                        help="Run A/B test: each instance evaluated both with and without spec")
+    parser.add_argument("--specs-dir", default="specs",
+                        help="Directory containing 3GPP spec excerpts (default: specs/)")
     args = parser.parse_args()
 
     # Load dataset
     instances = []
-    with open(args.dataset, "r") as f:
+    with open(args.dataset, "r", encoding="utf-8") as f:
         for line in f:
             instances.append(json.loads(line.strip()))
 
@@ -585,16 +650,27 @@ def main():
     else:
         agents = [(args.agent, args.model)]
 
+    # Determine spec conditions
+    if args.ab_test:
+        spec_conditions = [False, True]  # A/B: without then with
+        print("A/B TEST MODE: each instance will be evaluated with and without 3GPP spec")
+    elif args.with_spec:
+        spec_conditions = [True]
+    else:
+        spec_conditions = [False]
+
     # Run evaluations
     all_results = []
     for agent, model in agents:
-        for instance in instances:
-            for run_id in range(1, args.runs + 1):
-                result = evaluate_instance(
-                    instance, agent, model,
-                    timeout=args.timeout, run_id=run_id
-                )
-                all_results.append(result)
+        for with_spec in spec_conditions:
+            for instance in instances:
+                for run_id in range(1, args.runs + 1):
+                    result = evaluate_instance(
+                        instance, agent, model,
+                        timeout=args.timeout, run_id=run_id,
+                        with_spec=with_spec, specs_dir=args.specs_dir
+                    )
+                    all_results.append(result)
 
     # Generate report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

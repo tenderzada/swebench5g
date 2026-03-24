@@ -36,7 +36,7 @@
 \maketitle
 
 \begin{abstract}
-Existing benchmarks for AI coding agents---such as SWE-Bench, SWE-Bench Mobile, and BeyondSWE---have primarily targeted general-purpose software in Python, Swift, or cross-repository settings. However, none address the \emph{telecommunications domain}, where software correctness is governed by formal protocol specifications (3GPP), systems are inherently distributed, and bugs often manifest through complex protocol state machine interactions. We introduce \textbf{SWE-Bench 5G}, a benchmark that evaluates coding agents on real bug-fixing tasks drawn from \textbf{free5GC}, the most widely adopted open-source 5G core network implementation. Each task instance is packaged as a self-contained Docker image with a pre-installed Go toolchain, the source code at the buggy commit, existing regression tests, and fail-to-pass tests that verify the fix. Our benchmark introduces three challenges absent from prior work: (1) \emph{specification-driven reasoning}, where agents must interpret 3GPP technical specifications to understand expected behavior; (2) \emph{distributed network function coordination}, where bugs span multiple interacting microservices; and (3) \emph{protocol state machine complexity}, where fixes require understanding stateful signaling procedures. We release 10 validated task instances spanning 7 network functions, with an automated pipeline for scaling to 50+ instances from a candidate pool of 280 issues mined across 16 repositories.
+Existing benchmarks for AI coding agents---such as SWE-Bench, SWE-Bench Mobile, and BeyondSWE---target general-purpose software and do not evaluate performance in \emph{specification-driven, vertical domains}. We introduce \textbf{SWE-Bench 5G}, the first benchmark for 5G core network software engineering, and use it to investigate a key question inspired by SWE-Skills-Bench \citep{han2025sweskills}: \emph{does injecting domain-specific protocol specifications (3GPP Technical Specifications) improve AI agents' ability to fix real telecommunications bugs?} Our benchmark draws real bug-fixing tasks from \textbf{free5GC}, packages each as a Docker image, and provides both fail-to-pass tests and curated 3GPP specification excerpts as optional ``skill documents.'' We release 10 validated instances spanning 7 Network Functions with an A/B evaluation framework that isolates the marginal effect of specification knowledge. Preliminary results with Qwen3.5-Flash reveal that the model correctly identifies bugs in every attempt but achieves 0\% resolve rate in single-turn mode, suggesting that \emph{agentic capabilities---not domain knowledge alone---are the bottleneck} for telecommunications software engineering.
 \end{abstract}
 
 \section{Introduction}
@@ -70,7 +70,9 @@ We present \textbf{SWE-Bench 5G}, the first benchmark targeting AI coding agents
 
 \textbf{BeyondSWE} \citep{shi2025beyondswe} expands the resolution scope to cross-repository reasoning, domain-specific problem solving, and dependency-driven migrations, packaging each of its 500 instances in a Docker image for full reproducibility. We adopt the same Docker-based environment design.
 
-Despite this diversity, all existing benchmarks target general-purpose software. None evaluate agents on \emph{protocol-specified, distributed telecommunications systems}---a domain with distinct challenges around specification compliance, signaling procedures, and network function coordination.
+\textbf{SWE-Skills-Bench} \citep{han2025sweskills} takes a complementary angle, evaluating whether injecting domain-specific ``skill documents'' into agents improves their performance. Across 49 skills, they find that 80\% provide zero improvement, with utility depending on domain match and abstraction level. We adapt this paired evaluation methodology to test whether 3GPP protocol specifications function as effective skills for 5G bug fixing.
+
+Despite this growing diversity, all existing benchmarks target general-purpose software. None evaluate agents on \emph{protocol-specified, distributed telecommunications systems}---a domain with distinct challenges around specification compliance, signaling procedures, and network function coordination.
 
 \subsection{Open-Source 5G Core Networks}
 
@@ -269,6 +271,54 @@ UPF  & User Plane (planned)          & 0 \\
 \paragraph{Challenge.} The handler function requires an active SCTP connection, NGAP context, and \texttt{AmfRan} state---impractical to mock in a unit test.
 
 \paragraph{Test design.} We use diff-based intent testing: the test reads \texttt{handler.go} and verifies the string \texttt{"GNbId != nil"} appears in the source. On the buggy version, this pattern is absent (FAIL). After the agent adds the nil guard, the pattern is found (PASS). This approach forces the agent to modify the actual source code while avoiding complex dependency setup.
+
+\section{Specification as Skill: A/B Evaluation Framework}
+
+Inspired by SWE-Skills-Bench \citep{han2025sweskills}, which found that 80\% of injected ``skills'' provide zero improvement to coding agents, we investigate whether \emph{3GPP protocol specifications}---the authoritative knowledge source for 5G software---function as effective skill documents for bug fixing.
+
+\subsection{Motivation}
+
+5G core network bugs are uniquely \emph{specification-driven}: many bugs exist precisely because developers misinterpreted or overlooked a specific 3GPP clause. For example, in our pilot task (PCF Issue \#879), the bug occurs because the developer assumed \texttt{AfRoutReq} is always present when \texttt{suppFeat} bit 1 is set. However, 3GPP TS 29.514 explicitly states that \texttt{AfRoutReq} is \emph{optional}. Providing this specification excerpt to an agent could, in principle, enable it to understand \emph{why} the bug exists and \emph{what} the correct behavior should be.
+
+\subsection{Specification Excerpt Design}
+
+For each task instance, we curate a \emph{specification excerpt} from the relevant 3GPP Technical Specification(s). Each excerpt contains:
+\begin{itemize}
+    \item The relevant TS section number and title
+    \item The specific clause governing the buggy behavior
+    \item Field optionality and valid ranges (e.g., ``Expiry is OPTIONAL per TS 29.531'')
+    \item A ``Key Implication'' paragraph linking the specification to the specific bug
+\end{itemize}
+
+Excerpts are stored as Markdown files in the \texttt{specs/} directory and are injected into the agent's problem statement during evaluation when the \texttt{--with-spec} flag is set.
+
+\subsection{A/B Evaluation Protocol}
+
+Our evaluation harness supports controlled A/B testing via the \texttt{--ab-test} flag:
+
+\begin{itemize}
+    \item \textbf{Condition A (without-spec)}: Agent receives only the problem statement and source code.
+    \item \textbf{Condition B (with-spec)}: Agent receives the problem statement, source code, \emph{and} the 3GPP specification excerpt appended to the problem statement.
+\end{itemize}
+
+Both conditions use identical Docker images, test suites, and evaluation criteria. The only variable is the presence of the specification excerpt. This design directly follows the paired evaluation methodology of SWE-Skills-Bench.
+
+We measure:
+\begin{itemize}
+    \item \textbf{Resolve rate delta ($\Delta$)}: Change in resolve rate with vs. without specification
+    \item \textbf{Token overhead}: Additional tokens consumed due to longer prompts
+    \item \textbf{Per-instance analysis}: Which bug types benefit most from specification knowledge
+\end{itemize}
+
+\subsection{Hypotheses}
+
+Based on SWE-Skills-Bench's finding that skill utility depends on ``domain match, abstraction level, and context compatibility,'' we hypothesize:
+
+\begin{enumerate}
+    \item \textbf{H1}: Specification injection will have \emph{minimal effect} on simple nil-pointer bugs (where the fix is a generic defensive check, not specification-dependent).
+    \item \textbf{H2}: Specification injection will \emph{improve} resolve rate on bugs where the fix requires understanding protocol semantics (e.g., which fields are optional, valid value ranges).
+    \item \textbf{H3}: The token overhead from specification injection will be modest ($<$50\% increase) since excerpts are concise summaries, not full specification documents.
+\end{enumerate}
 
 \section{Baseline Experiments}
 
