@@ -109,7 +109,7 @@ sed -e "s|{{INSTANCE_ID}}|${INSTANCE_ID}|g" \
 
 # --- Step 5: Build Docker image ---
 echo "[5/5] Building Docker image: ${IMAGE_NAME}..."
-docker build -t "${IMAGE_NAME}" "${BUILD_DIR}"
+DOCKER_BUILDKIT=0 docker build --network=host -t "${IMAGE_NAME}" "${BUILD_DIR}"
 
 echo ""
 echo "============================================"
