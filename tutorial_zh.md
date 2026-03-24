@@ -31,10 +31,11 @@ SWE-Bench 5G 是一个用于**评估 AI 编程 Agent 在 5G 核心网软件工�
 | 指标 | 数值 |
 |------|------|
 | 总实例数 | **21**（含 1 个 pilot + 20 个新实例） |
-| 已验证 | 2（pilot_pcf_879, amf_pr161） |
+| 已验证并发布 | **10** 个（已上传 HuggingFace） |
 | 覆盖 NF | 7 个（AMF, PCF, SMF, UDM, NRF, NSSF, AUSF） |
-| 难度分布 | 19 easy + 2 medium |
+| 难度分布 | 10 easy 已验证 + 2 medium 待验证 |
 | 候选池 | 280 个（来自 16 个子仓库） |
+| HuggingFace | [tenderzada/SWEBench5G](https://huggingface.co/datasets/tenderzada/SWEBench5G) v0.2 |
 
 ---
 

@@ -55,7 +55,7 @@ REPO_ID = "tenderzada/SWEBench5G"
 ds.push_to_hub(
     REPO_ID,
     split="test",
-    commit_message="Initial release: 1 pilot task (PCF Issue #879)",
+    commit_message="v0.2: 10 validated instances across 7 NFs (AMF, PCF, SMF, UDM, NRF, NSSF, AUSF)",
 )
 
 print(f"Dataset uploaded to https://huggingface.co/datasets/{REPO_ID}")

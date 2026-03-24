@@ -131,7 +131,8 @@ This benchmark is under active development. We are expanding the dataset by mini
 | Version | Instances | NFs Covered | Difficulty Distribution |
 |---------|-----------|-------------|------------------------|
 | v0.1 | 1 | PCF | 1 easy |
-| v1.0 (planned) | 50+ | AMF, SMF, PCF, UPF | easy/medium/hard |
+| v0.2 | 10 | AMF, PCF, SMF, UDM, NRF, NSSF, AUSF | 10 easy |
+| v1.0 (planned) | 50+ | All NFs | easy/medium/hard |
 
 ## Related Work
 
