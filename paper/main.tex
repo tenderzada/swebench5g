@@ -36,7 +36,7 @@
 \maketitle
 
 \begin{abstract}
-Existing benchmarks for AI coding agents---such as SWE-Bench, SWE-Bench Mobile, and BeyondSWE---have primarily targeted general-purpose software in Python, Swift, or cross-repository settings. However, none address the \emph{telecommunications domain}, where software correctness is governed by formal protocol specifications (3GPP), systems are inherently distributed, and bugs often manifest through complex protocol state machine interactions. We introduce \textbf{SWE-Bench 5G}, a benchmark that evaluates coding agents on real bug-fixing tasks drawn from \textbf{free5GC}, the most widely adopted open-source 5G core network implementation. Each task instance is packaged as a self-contained Docker image with a pre-installed Go toolchain, the source code at the buggy commit, existing regression tests, and fail-to-pass tests that verify the fix. Our benchmark introduces three challenges absent from prior work: (1) \emph{specification-driven reasoning}, where agents must interpret 3GPP technical specifications to understand expected behavior; (2) \emph{distributed network function coordination}, where bugs span multiple interacting microservices; and (3) \emph{protocol state machine complexity}, where fixes require understanding stateful signaling procedures. We report baseline results from multiple frontier coding agents on an initial set of task instances and discuss the roadmap toward a comprehensive 5G software engineering benchmark.
+Existing benchmarks for AI coding agents---such as SWE-Bench, SWE-Bench Mobile, and BeyondSWE---have primarily targeted general-purpose software in Python, Swift, or cross-repository settings. However, none address the \emph{telecommunications domain}, where software correctness is governed by formal protocol specifications (3GPP), systems are inherently distributed, and bugs often manifest through complex protocol state machine interactions. We introduce \textbf{SWE-Bench 5G}, a benchmark that evaluates coding agents on real bug-fixing tasks drawn from \textbf{free5GC}, the most widely adopted open-source 5G core network implementation. Each task instance is packaged as a self-contained Docker image with a pre-installed Go toolchain, the source code at the buggy commit, existing regression tests, and fail-to-pass tests that verify the fix. Our benchmark introduces three challenges absent from prior work: (1) \emph{specification-driven reasoning}, where agents must interpret 3GPP technical specifications to understand expected behavior; (2) \emph{distributed network function coordination}, where bugs span multiple interacting microservices; and (3) \emph{protocol state machine complexity}, where fixes require understanding stateful signaling procedures. We release 10 validated task instances spanning 7 network functions, with an automated pipeline for scaling to 50+ instances from a candidate pool of 280 issues mined across 16 repositories.
 \end{abstract}
 
 \section{Introduction}
@@ -55,9 +55,9 @@ We present \textbf{SWE-Bench 5G}, the first benchmark targeting AI coding agents
 
 \begin{enumerate}
     \item A benchmark framework that maps 5G core network bugs to the SWE-Bench task format, enriched with 3GPP specification references and protocol context.
-    \item A three-layer test architecture (unit, protocol compliance, integration) tailored to the distributed, specification-driven nature of 5G software.
-    \item An initial dataset of validated task instances drawn from real free5GC issues, with a systematic pipeline for expansion across the full free5GC ecosystem of 20+ repositories.
-    \item Baseline evaluation results demonstrating the challenges that 5G domain tasks pose to current frontier coding agents.
+    \item A dual test strategy---\emph{direct function call} and \emph{diff-based intent testing}---tailored to the distributed, specification-driven nature of 5G software where many functions cannot be unit-tested in isolation.
+    \item A dataset of 10 validated task instances spanning 7 NFs, drawn from real free5GC issues, with an automated pipeline for expansion across 16 repositories (280 candidates identified).
+    \item An end-to-end evaluation harness and batch tooling for building, validating, and scoring agent performance on task instances.
 \end{enumerate}
 
 \section{Related Work}
@@ -66,13 +66,15 @@ We present \textbf{SWE-Bench 5G}, the first benchmark targeting AI coding agents
 
 \textbf{SWE-Bench} \citep{jimenez2024swebench} pioneered the evaluation of coding agents on real-world GitHub issues, drawing 2,294 task instances from 12 popular Python repositories. Each instance pairs an issue description with a fail-to-pass test, enabling automated evaluation. Subsequent work has extended this paradigm along several axes.
 
-\textbf{SWE-Bench Mobile} \citep{yao2025swebenchmobile} targets iOS development with multi-modal inputs (PRDs and Figma designs) over a 500K-line Swift/Objective-C codebase, introducing diff-based intent tests that operate without compiling the application. \textbf{BeyondSWE} \citep{shi2025beyondswe} expands the resolution scope to cross-repository reasoning, domain-specific problem solving, and dependency-driven migrations, packaging each of its 500 instances in a Docker image for full reproducibility. \textbf{SWE-bench Multimodal} \citep{yang2024swebenchmm} extends the original SWE-Bench with tasks requiring visual understanding of JavaScript web applications.
+\textbf{SWE-Bench Mobile} \citep{yao2025swebenchmobile} targets iOS development with multi-modal inputs (PRDs and Figma designs) over a 500K-line Swift/Objective-C codebase. It introduces \emph{diff-based intent tests} that verify patch correctness through structural inspection rather than runtime execution---an approach we adapt for 5G functions with complex runtime dependencies.
+
+\textbf{BeyondSWE} \citep{shi2025beyondswe} expands the resolution scope to cross-repository reasoning, domain-specific problem solving, and dependency-driven migrations, packaging each of its 500 instances in a Docker image for full reproducibility. We adopt the same Docker-based environment design.
 
 Despite this diversity, all existing benchmarks target general-purpose software. None evaluate agents on \emph{protocol-specified, distributed telecommunications systems}---a domain with distinct challenges around specification compliance, signaling procedures, and network function coordination.
 
 \subsection{Open-Source 5G Core Networks}
 
-free5GC \citep{free5gc} is an open-source implementation of the 3GPP Release 15+ 5G core network, written in Go. It implements the full set of control-plane NFs (AMF, SMF, PCF, UDM, UDR, AUSF, NRF, NSSF, N3IWF) and a user-plane function (UPF). With 2.3K GitHub stars and active development, it is the most widely used open-source 5GC for research and prototyping. Other open-source 5G projects include Open5GS (C-based) and OAI-CN5G (C/C++), but free5GC's Go codebase and modular architecture make it most amenable to automated code generation and analysis.
+free5GC \citep{free5gc} is an open-source implementation of the 3GPP Release 15+ 5G core network, written in Go. It implements the full set of control-plane NFs (AMF, SMF, PCF, UDM, UDR, AUSF, NRF, NSSF, N3IWF) and a user-plane function (UPF). With 2.3K GitHub stars and active development, it is the most widely used open-source 5GC for research and prototyping. Its Go codebase and modular architecture (one repository per NF) make it amenable to automated code analysis and per-NF testing.
 
 \section{Benchmark Design}
 
@@ -92,32 +94,65 @@ We categorize tasks along two dimensions: \emph{scope} and \emph{bug type}.
 
 \paragraph{Scope.}
 \begin{itemize}
-    \item \textbf{SingleNF}: The bug and fix are contained within a single Network Function. Example: a nil pointer dereference in the PCF's policy authorization handler.
-    \item \textbf{CrossNF}: The fix requires coordinated changes across multiple NFs. Example: a registration procedure failure involving both AMF and UDM.
-    \item \textbf{Protocol}: The bug violates a specific 3GPP protocol requirement. Example: incorrect NAS message encoding that causes interoperability failures.
-    \item \textbf{DataPlane}: The bug affects user-plane forwarding in the UPF or PFCP signaling between SMF and UPF.
+    \item \textbf{SingleNF}: The bug and fix are contained within a single Network Function (all 10 current instances).
+    \item \textbf{CrossNF}: The fix requires coordinated changes across multiple NFs (planned).
+    \item \textbf{Protocol}: The bug violates a specific 3GPP protocol requirement (planned).
+    \item \textbf{DataPlane}: The bug affects user-plane forwarding in the UPF or PFCP signaling (planned).
 \end{itemize}
 
-\paragraph{Bug type.} Following established taxonomies, we classify bugs as: \emph{nil pointer / crash}, \emph{logic error}, \emph{missing validation}, \emph{protocol non-compliance}, \emph{concurrency issue}, and \emph{configuration error}.
+\paragraph{Bug type.} Our current dataset covers: \emph{nil pointer dereference} (6 instances), \emph{crash / index out of range} (2), and \emph{missing validation} (2).
 
-\subsection{Three-Layer Test Architecture}
+\subsection{Dual Test Strategy}
 
-Unlike general-purpose software where unit tests suffice, 5G core network validation requires testing at multiple layers of the protocol stack:
+A key methodological contribution is our \emph{dual test strategy}, developed to address the challenge that many 5G NF functions cannot be called directly in unit tests due to complex runtime dependencies (SCTP connections, MongoDB contexts, inter-NF signaling).
 
-\begin{enumerate}
-    \item \textbf{Unit tests} (Layer 1): Test individual functions within a single NF. These are standard Go tests that verify message parsing, state transitions, and business logic. Execution time: milliseconds.
-    \item \textbf{Protocol compliance tests} (Layer 2): Simulate protocol messages (NGAP, NAS, HTTP/2, PFCP) and verify that the NF responds according to 3GPP specifications. These tests use mock clients to send crafted messages and assert on response content and status codes. Execution time: milliseconds to seconds.
-    \item \textbf{Integration tests} (Layer 3): Start multiple NFs and simulate end-to-end procedures (UE registration, PDU session establishment) using tools such as UERANSIM. Execution time: seconds to minutes. These are reserved for \texttt{Hard} difficulty tasks.
-\end{enumerate}
+\paragraph{Strategy A: Direct Function Call.} When the buggy function can be invoked with minimal setup, we call it directly with crash-triggering inputs and use Go's \texttt{defer/recover} mechanism to detect panics:
 
-For the initial release, we focus on Layer 1 and Layer 2 tests, which can execute within the Docker container without requiring network connectivity or external simulators.
+\begin{lstlisting}[caption={Strategy A: Direct function call (pilot\_pcf\_879)}]
+func TestNilRouteReq(t *testing.T) {
+    defer func() {
+        if r := recover(); r != nil {
+            t.Fatalf("BUG: panic: %v", r)
+        }
+    }()
+    // Call the actual buggy function
+    provisioningOfTrafficRoutingInfo(smPolicy, "app1", nil, "")
+}
+\end{lstlisting}
+
+\paragraph{Strategy B: Diff-Based Intent Test.} Inspired by SWE-Bench Mobile's structural patch inspection \citep{yao2025swebenchmobile}, when the function requires complex runtime context, we verify that the \emph{source code} contains the necessary fix pattern:
+
+\begin{lstlisting}[caption={Strategy B: Diff-based intent test (amf\_pr161)}]
+func TestHandlerHasGNbIdNilCheck(t *testing.T) {
+    data, _ := os.ReadFile("handler.go")
+    if !strings.Contains(string(data), "GNbId != nil") {
+        t.Fatal("BUG: accesses GNbId without nil check")
+    }
+}
+\end{lstlisting}
+
+Strategy B ensures that agents must modify the actual source code to pass the test, while avoiding the need to construct complex mock objects for NGAP connections, SCTP sessions, or database contexts.
+
+\begin{table}[h]
+\centering
+\caption{Test strategy selection criteria and usage}
+\label{tab:strategies}
+\begin{tabular}{lcp{5cm}c}
+\toprule
+\textbf{Strategy} & \textbf{Count} & \textbf{When to use} & \textbf{Example} \\
+\midrule
+A: Direct Call  & 3 & Function callable with simple args & pilot\_pcf\_879 \\
+B: Diff-Based   & 7 & Complex dependencies (NGAP, DB) & amf\_pr161 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Docker Environment Design}
 
-Following BeyondSWE \citep{shi2025beyondswe}, each task instance is packaged as a self-contained Docker image. The image structure is:
+Following BeyondSWE \citep{shi2025beyondswe}, each task instance is packaged as a self-contained Docker image built from a shared \texttt{golang:1.25-bookworm} base. The image contains:
 
 \begin{lstlisting}[language=bash, caption={Docker image internal structure}]
-/opt/free5gc-pcf/              # NF source at buggy commit
+/opt/free5gc-<nf>/             # NF source at buggy commit
   internal/sbi/processor/      # Bug location
   go.mod, go.sum               # Dependencies (pre-downloaded)
 /opt/test-suite/
@@ -128,156 +163,125 @@ Following BeyondSWE \citep{shi2025beyondswe}, each task instance is packaged as 
   problem_statement.md         # Issue + 3GPP spec references
 \end{lstlisting}
 
-The agent workflow within a container is:
-\begin{enumerate}
-    \item Read the problem statement (\texttt{/opt/task/problem\_statement.md}).
-    \item Run existing tests to verify the environment (\texttt{run\_tests.sh existing} $\rightarrow$ PASS).
-    \item Run fail-to-pass tests to confirm the bug (\texttt{run\_tests.sh fail} $\rightarrow$ FAIL).
-    \item Analyze the code, understand the bug, and apply a fix.
-    \item Run all tests to verify the fix (\texttt{run\_tests.sh all} $\rightarrow$ ALL PASS).
-\end{enumerate}
-
 \subsection{Dataset Construction Pipeline}
 
-Our pipeline for constructing task instances consists of five stages:
+Our automated pipeline consists of five stages:
 
-\paragraph{Stage 1: Candidate mining.} We systematically collect closed issues with linked merged pull requests from the free5GC main repository and its 20+ sub-repositories (one per NF). We filter for issues that describe observable bugs with clear reproduction steps.
+\paragraph{Stage 1: Candidate mining.} An automated script (\texttt{mine\_issues.py}) scans 16 free5GC sub-repositories via the GitHub API, collecting closed issues with linked merged PRs. It filters for bug-fix PRs by title keywords and excludes refactoring, documentation, and dependency changes. This yielded \textbf{280 candidates}.
 
-\paragraph{Stage 2: Quality filtering.} We exclude issues that involve pure refactoring, documentation changes, dependency upgrades, or require external hardware (e.g., physical gNB equipment). We retain issues where the PR modifies source code files and the bug is reproducible from the issue description.
+\paragraph{Stage 2: Quality filtering.} We retain candidates with clear issue descriptions, linked PRs that modify source code files, and bugs reproducible without external hardware. From 280 candidates, 29 met all quality criteria.
 
-\paragraph{Stage 3: Commit identification.} For each candidate, we identify the \emph{parent commit} (last commit before the fix PR was merged, representing the buggy version) and the \emph{fix commit} (the merge commit of the fix PR).
+\paragraph{Stage 3: Commit identification.} For each candidate, we identify the \emph{parent commit} (buggy version) and \emph{fix commit} using GitHub API data, verified against the actual PR diff.
 
-\paragraph{Stage 4: Test suite construction.} We construct fail-to-pass tests that exercise the specific bug. Since free5GC has limited existing test coverage, most tests are manually authored based on the issue description and 3GPP specification requirements. Existing tests (pass-to-pass) are either drawn from the repository or authored to verify non-regression of surrounding functionality.
+\paragraph{Stage 4: Test suite construction.} We construct fail-to-pass tests using Strategy A or B depending on function testability. Tests are authored based on the issue description, PR diff, and 3GPP specification requirements. A generation script (\texttt{generate\_instances.py}) templates the process.
 
-\paragraph{Stage 5: Validation.} Each task instance undergoes a three-step automated validation:
+\paragraph{Stage 5: Automated validation.} A batch script (\texttt{batch\_build\_validate.sh}) builds Docker images and runs three-step validation for each instance:
 \begin{enumerate}
     \item At the parent commit: existing tests PASS, fail-to-pass tests FAIL.
-    \item Apply the ground-truth fix: all tests PASS.
-    \item Reset to parent commit: fail-to-pass tests FAIL again (confirming the tests are specific to the fix).
+    \item Apply the ground-truth fix (via \texttt{git cherry-pick} or \texttt{checkout}): all tests PASS.
 \end{enumerate}
-
-Only instances that pass all three validation steps are included in the dataset.
-
-\subsection{Difficulty Classification}
-
-We assign difficulty levels based on the scope and complexity of the required fix:
-
-\begin{table}[h]
-\centering
-\caption{Difficulty classification criteria}
-\label{tab:difficulty}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Difficulty} & \textbf{Files changed} & \textbf{Lines changed} & \textbf{NFs involved} \\
-\midrule
-Easy   & 1       & $<$ 50    & 1 \\
-Medium & 2--3    & 50--200   & 1--2 \\
-Hard   & $>$ 3   & $>$ 200   & $\geq$ 2 \\
-\bottomrule
-\end{tabular}
-\end{table}
+Only instances passing both steps are included. The current v0.2 release contains \textbf{10 validated instances} from 21 constructed.
 
 \section{Dataset Statistics}
 
-\subsection{Current Release (v0.1)}
-
-The initial release contains validated task instances drawn from real free5GC issues. Table~\ref{tab:dataset_stats} summarizes the dataset.
-
 \begin{table}[h]
 \centering
-\caption{SWE-Bench 5G v0.1 dataset statistics}
+\caption{SWE-Bench 5G v0.2 dataset statistics}
 \label{tab:dataset_stats}
 \begin{tabular}{ll}
 \toprule
 \textbf{Attribute} & \textbf{Value} \\
 \midrule
-Total instances          & 1 (pilot; expansion in progress) \\
-Source project           & free5GC (Go, Apache-2.0) \\
-NFs represented          & PCF \\
-Bug types                & Nil pointer dereference \\
-Difficulty distribution  & 1 Easy \\
-Avg. lines changed       & 4 \\
-Avg. tests per instance  & 5 (2 existing + 3 fail-to-pass) \\
-3GPP specs referenced    & TS 29.514, TS 29.512 \\
-Docker image size        & $\sim$1.2 GB \\
+Total validated instances  & 10 \\
+Source project             & free5GC (Go, Apache-2.0) \\
+NFs represented            & 7 (AMF, PCF, SMF, UDM, NRF, NSSF, AUSF) \\
+Bug types                  & nil pointer (6), crash (2), missing validation (2) \\
+Difficulty distribution    & 10 Easy \\
+Test strategy              & 3 Direct Call (A) + 7 Diff-Based (B) \\
+Avg. tests per instance    & 3.2 (1.2 existing + 2.0 fail-to-pass) \\
+3GPP specs referenced      & TS 24.501, 29.507, 29.509, 29.510, 29.512, \\
+                           & 29.514, 29.518, 29.531, 38.413 \\
+Candidate pool             & 280 (from 16 repositories) \\
+Docker base image          & \texttt{golang:1.25-bookworm} ($\sim$1.2 GB shared) \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\subsection{Expansion Roadmap}
-
-Table~\ref{tab:candidates} shows the candidate issues identified for dataset expansion across the free5GC ecosystem.
 
 \begin{table}[h]
 \centering
-\caption{Candidate issues for dataset expansion}
-\label{tab:candidates}
-\begin{tabular}{llllc}
+\caption{Validated task instances in v0.2}
+\label{tab:instances}
+\begin{tabular}{llllcc}
 \toprule
-\textbf{Issue} & \textbf{NF} & \textbf{Bug Type} & \textbf{Difficulty} & \textbf{Status} \\
+\textbf{Instance} & \textbf{NF} & \textbf{Bug Type} & \textbf{Strategy} & \textbf{Tests} & \textbf{Spec} \\
 \midrule
-\#879  & PCF & Nil pointer crash     & Easy   & Validated \\
-\#713  & AMF & Index out of range     & Easy   & Candidate \\
-\#794  & SMF & Nil pointer (PFCP)     & Easy   & Candidate \\
-\#844  & PCF & Missing auth middleware & Medium & Candidate \\
-\#730  & UPF & Malformed PFCP crash   & Medium & Candidate \\
+pilot\_pcf\_879 & PCF  & nil pointer     & A & 5 & TS 29.514 \\
+amf\_pr118      & AMF  & crash           & B & 2 & TS 24.501 \\
+amf\_pr157      & AMF  & missing valid.  & A & 3 & TS 24.501 \\
+amf\_pr161      & AMF  & nil pointer     & B & 3 & TS 38.413 \\
+ausf\_pr52      & AUSF & nil pointer     & B & 2 & TS 29.509 \\
+nrf\_pr79       & NRF  & crash           & B & 2 & TS 29.510 \\
+nssf\_pr39      & NSSF & nil pointer     & B & 3 & TS 29.531 \\
+pcf\_pr57       & PCF  & nil pointer     & B & 2 & TS 29.507 \\
+smf\_pr125      & SMF  & nil pointer     & B & 2 & TS 29.518 \\
+udm\_pr45       & UDM  & index OOB       & B & 3 & TS 29.509 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Our target is to reach 50+ validated instances covering all major NFs (AMF, SMF, PCF, UPF, UDM, AUSF) across all difficulty levels for the v1.0 release.
-
-\section{Pilot Case Study}
-
-We present a detailed walkthrough of our pilot task instance to illustrate the benchmark design.
-
-\subsection{Task: PCF PolicyAuthorization Nil Pointer Panic (Issue \#879)}
-
-\paragraph{Bug description.} The PCF's \texttt{POST /npcf-policyauthorization/v1/app-sessions} endpoint crashes with a nil pointer dereference when a valid request sets \texttt{suppFeat="1"} (enabling traffic-routing support per 3GPP TS 29.514) but omits the \texttt{AfRoutReq} field. The function \texttt{provisioningOfTrafficRoutingInfo()} unconditionally dereferences the \texttt{routeReq} parameter without nil validation.
-
-\paragraph{3GPP context.} The \texttt{suppFeat} field negotiates optional features between NFs. Bit 1 corresponds to ``InfluenceOnTrafficRouting'' (TS 29.514) and ``Traffic Steering Control'' (TS 29.512). When this feature is negotiated, the PCF should handle the \emph{absence} of routing requirements gracefully---the specification does not mandate that \texttt{AfRoutReq} be present when traffic routing is enabled.
-
-\paragraph{Ground-truth fix.} The fix adds a nil check for \texttt{routeReq} at the entry of \texttt{provisioningOfTrafficRoutingInfo()}, returning a fallback PCC rule lookup when the parameter is nil (4 lines changed in 1 file).
-
-\paragraph{Test design.} We authored 5 test cases:
-\begin{itemize}
-    \item \textbf{PASS\_TO\_PASS} (2 tests): Verify that the function works correctly with a valid (non-nil) \texttt{routeReq}, and that PCC rule lookup by AppId functions correctly.
-    \item \textbf{FAIL\_TO\_PASS} (3 tests): (i) Call with nil \texttt{routeReq}; (ii) call with nil \texttt{routeReq} when an existing PCC rule exists for the app ID; (iii) simulate the exact \texttt{suppFeat=1} scenario from the issue.
-\end{itemize}
-
-All tests are placed in the same Go package (\texttt{processor}) to access the unexported function directly, using Go's \texttt{recover()} mechanism to detect panics.
-
-\subsection{Validation Results}
+\subsection{NF Coverage}
 
 \begin{table}[h]
 \centering
-\caption{Pilot task validation results}
-\label{tab:validation}
-\begin{tabular}{lcc}
+\caption{Network Function coverage in current dataset}
+\label{tab:nf_coverage}
+\begin{tabular}{llc}
 \toprule
-\textbf{Step} & \textbf{Expected} & \textbf{Actual} \\
+\textbf{NF} & \textbf{Role} & \textbf{Instances} \\
 \midrule
-Existing tests on buggy commit  & PASS & PASS \\
-Fail-to-pass tests on buggy commit  & FAIL & FAIL \\
-All tests after applying fix    & ALL PASS & ALL PASS \\
+AMF  & Access \& Mobility Management & 3 \\
+PCF  & Policy Control                & 2 \\
+SMF  & Session Management            & 1 \\
+UDM  & Unified Data Management       & 1 \\
+NRF  & NF Repository / Discovery     & 1 \\
+NSSF & Network Slice Selection       & 1 \\
+AUSF & Authentication Server         & 1 \\
+\midrule
+UPF  & User Plane (planned)          & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\section{Case Studies}
+
+\subsection{Strategy A: PCF PolicyAuthorization (pilot\_pcf\_879)}
+
+\paragraph{Bug.} The PCF crashes with nil pointer dereference when \texttt{suppFeat="1"} but \texttt{AfRoutReq} is absent. The function \texttt{provisioningOfTrafficRoutingInfo()} unconditionally dereferences its \texttt{routeReq} parameter.
+
+\paragraph{Test design.} We call the function directly with \texttt{routeReq=nil}. On the buggy version, Go's \texttt{recover()} catches the panic and marks the test as FAIL. After the fix adds a nil check, the function returns gracefully and the test passes.
+
+\paragraph{3GPP context.} The \texttt{suppFeat} field (TS 29.514 bit 1) negotiates traffic-routing support. The specification does not mandate \texttt{AfRoutReq} presence---the PCF should handle its absence gracefully.
+
+\subsection{Strategy B: AMF GNbId Nil Check (amf\_pr161)}
+
+\paragraph{Bug.} The AMF crashes when \texttt{handleUplinkRANConfigurationTransferMain} accesses \texttt{targetRanNodeID.GNbId.GNBValue} without nil-checking \texttt{GNbId}.
+
+\paragraph{Challenge.} The handler function requires an active SCTP connection, NGAP context, and \texttt{AmfRan} state---impractical to mock in a unit test.
+
+\paragraph{Test design.} We use diff-based intent testing: the test reads \texttt{handler.go} and verifies the string \texttt{"GNbId != nil"} appears in the source. On the buggy version, this pattern is absent (FAIL). After the agent adds the nil guard, the pattern is found (PASS). This approach forces the agent to modify the actual source code while avoiding complex dependency setup.
 
 \section{Baseline Experiments}
 
 \subsection{Experimental Setup}
 
-We evaluate the pilot task instance with multiple frontier coding agents to establish baseline performance and identify the challenges unique to 5G tasks.
+We evaluate on the 10 validated instances with multiple frontier coding agents.
 
-\paragraph{Agent configurations.} We test the following agent-model combinations:
+\paragraph{Agent configurations.}
 \begin{itemize}
     \item Claude Code (Claude Opus 4.6)
     \item Cursor Agent (Claude Sonnet 4.6)
     \item OpenAI Codex CLI (GPT-4.1)
 \end{itemize}
-
-Each agent is given the problem statement from \texttt{/opt/task/problem\_statement.md} and full access to the source code within the Docker container. Agents are evaluated on whether their generated patch causes all 5 tests to pass.
 
 \paragraph{Evaluation metric.} Following SWE-Bench, we use the binary \emph{resolve rate}: an instance is \emph{resolved} if and only if (1) all \texttt{FAIL\_TO\_PASS} tests pass and (2) all \texttt{PASS\_TO\_PASS} tests continue to pass after applying the agent's patch.
 
@@ -285,11 +289,11 @@ Each agent is given the problem statement from \texttt{/opt/task/problem\_statem
 
 \begin{table}[h]
 \centering
-\caption{Baseline results on the pilot task instance. Results to be populated after evaluation runs are complete.}
+\caption{Baseline results on 10 validated instances (to be populated).}
 \label{tab:results}
 \begin{tabular}{lccc}
 \toprule
-\textbf{Agent} & \textbf{Model} & \textbf{Resolved} & \textbf{Time (s)} \\
+\textbf{Agent} & \textbf{Model} & \textbf{Resolve Rate} & \textbf{Avg. Time (s)} \\
 \midrule
 Claude Code   & Opus 4.6    & TBD & TBD \\
 Cursor Agent  & Sonnet 4.6  & TBD & TBD \\
@@ -298,35 +302,43 @@ Codex CLI     & GPT-4.1     & TBD & TBD \\
 \end{tabular}
 \end{table}
 
-\textit{Note: Baseline experiment results will be populated upon completion of evaluation runs. We expect that the pilot task (Easy difficulty, single-file nil pointer fix) will have a relatively high resolve rate, consistent with findings from SWE-Bench that simpler bugs are more tractable for current agents.}
+\textit{Note: Baseline results will be populated upon completion of evaluation runs. We anticipate that easy, single-NF tasks will have moderate resolve rates, while the domain-specific nature of the bugs (3GPP specification knowledge, Go idioms for nil handling) will present challenges distinct from general-purpose benchmarks.}
 
-\section{Challenges Unique to 5G Benchmarking}
+\section{Challenges and Lessons Learned}
 
 Our experience constructing SWE-Bench 5G reveals several challenges that distinguish it from existing benchmarks:
 
-\paragraph{Limited test coverage.} Unlike mature Python projects that SWE-Bench draws from, free5GC has minimal existing unit tests. Most NF repositories contain zero \texttt{\_test.go} files. This necessitates manual test authoring for every task instance---a significant bottleneck for scaling the dataset.
+\paragraph{Zero existing test coverage.} Unlike mature Python projects that SWE-Bench draws from, free5GC has virtually no unit tests---most NF repositories contain zero \texttt{\_test.go} files. Every fail-to-pass test must be authored from scratch, making test quality the primary bottleneck for dataset scaling.
 
-\paragraph{Specification interpretation.} 3GPP Technical Specifications are written in a dense, semi-formal style with cross-references spanning multiple documents. Even human developers frequently misinterpret specification requirements, as evidenced by the bugs we catalog. Evaluating whether an agent ``understands'' a specification clause is an open challenge.
+\paragraph{Test strategy selection.} A naive approach of directly calling buggy functions fails for functions requiring complex runtime context (NGAP sessions, database connections). Our dual strategy (direct call vs. diff-based intent) resolves this but introduces a trade-off: diff-based tests are less rigorous than functional tests, as they verify code patterns rather than runtime behavior.
 
-\paragraph{Environment complexity.} End-to-end 5G testing requires multiple NFs running concurrently, a MongoDB instance, and potentially a RAN simulator (UERANSIM). While our Docker images encapsulate single-NF testing, scaling to CrossNF and integration tests requires orchestrating multi-container environments.
+\paragraph{Commit ancestry precision.} Identifying the correct ``buggy'' parent commit is non-trivial. Some PRs are based on branches that already contain partial fixes, and merge commits may introduce unrelated changes. We encountered cases where the parent commit already contained the fix pattern, requiring manual verification and re-selection of commits.
+
+\paragraph{Environment reproducibility.} Docker images depend on external Go modules (\texttt{go mod download}) and base images from Docker Hub. Network-restricted environments (common in China) require mirrors for both (\texttt{goproxy.cn}, Docker registry mirrors), adding deployment complexity.
 
 \paragraph{Domain knowledge scarcity.} Telecommunications is underrepresented in LLM training data relative to web development or data science. We hypothesize that agents will struggle more with 5G-specific tasks not because of code complexity, but because of unfamiliarity with the domain's concepts and conventions.
 
 \section{Discussion and Future Work}
 
-\paragraph{Scaling the dataset.} Our immediate priority is expanding from the pilot to 50+ validated instances. The free5GC ecosystem contains 20+ sub-repositories with a combined 2,000+ commits and hundreds of closed issues, providing ample candidate tasks. We plan to develop semi-automated tools for test generation to reduce the manual authoring bottleneck.
+\paragraph{Scaling to 50+ instances.} Our candidate pool of 280 issues, combined with the automated mining and batch validation pipeline, provides a clear path to scaling. The primary bottleneck is test authoring quality---we plan to use LLM-assisted test generation with human review.
 
-\paragraph{Multi-modal inputs.} Following SWE-Bench Mobile's approach, we plan to augment task instances with 3GPP signaling flow diagrams (extracted from TS 23.502) as visual inputs, testing agents' ability to reason about protocol procedures from both textual and diagrammatic representations.
+\paragraph{Medium and hard difficulty tasks.} The current release contains only easy (single-file, single-NF) tasks. We have identified 2 medium-difficulty candidates requiring multi-file changes and plan to expand to hard tasks involving cross-NF coordination.
 
-\paragraph{Cross-NF tasks.} The most challenging and realistic 5G debugging scenarios involve tracing issues across multiple NFs. We plan to introduce multi-container task instances where agents must identify and fix bugs spanning AMF-SMF or SMF-UPF boundaries.
+\paragraph{3GPP specification augmentation.} Following SWE-Bench Mobile's multi-modal approach with Figma designs, we plan to augment task instances with 3GPP signaling flow diagrams and specification excerpts, testing whether providing domain context improves resolve rates.
 
-\paragraph{Beyond bug fixing.} Future versions may include feature implementation tasks (e.g., implementing a new 3GPP Release 16 feature) and protocol migration tasks (e.g., upgrading from Release 15 to Release 16 compliance).
+\paragraph{SearchSWE-5G.} Inspired by BeyondSWE's SearchSWE framework, we plan to develop a 3GPP specification search tool (via MCP) that agents can query during debugging, enabling evaluation of specification-grounded reasoning.
+
+\paragraph{Agent baseline analysis.} Beyond resolve rates, we plan to analyze agent behavior: Do agents read the 3GPP references in the problem statement? Do they explore related NF code? How do different prompt strategies (e.g., SWE-Bench Mobile's ``defensive programming'' prompt) affect performance on 5G tasks?
 
 \section{Conclusion}
 
-We have presented SWE-Bench 5G, the first benchmark for evaluating AI coding agents on telecommunications software engineering tasks. By targeting the free5GC open-source 5G core network, our benchmark introduces challenges around specification-driven reasoning, distributed network function coordination, and protocol state machine complexity that are absent from existing benchmarks. Our Docker-based evaluation framework ensures full reproducibility, and our three-layer test architecture captures the multi-faceted nature of 5G software validation. The initial pilot release demonstrates the viability of this approach, and we outline a clear path toward a comprehensive benchmark covering the full spectrum of 5G core network engineering challenges.
+We have presented SWE-Bench 5G, the first benchmark for evaluating AI coding agents on telecommunications software engineering tasks. By targeting the free5GC open-source 5G core network, our benchmark introduces challenges around specification-driven reasoning, distributed network function coordination, and protocol state machine complexity that are absent from existing benchmarks. Our dual test strategy---combining direct function calls with diff-based intent testing---addresses the practical challenge of testing functions with complex runtime dependencies. The v0.2 release contains 10 validated instances spanning 7 network functions, with an automated pipeline supporting expansion from a 280-candidate pool. The dataset, evaluation harness, and project showcase are publicly available.
 
-The dataset is publicly available at \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}, and the benchmark infrastructure is open-sourced at \url{https://github.com/tenderzada/swebench5g}.
+\begin{itemize}
+    \item Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}
+    \item Code: \url{https://github.com/tenderzada/swebench5g}
+    \item Project page: \url{https://tenderzada.github.io/swebench5g/}
+\end{itemize}
 
 \begin{ack}
 We thank the free5GC open-source community for their work on building and maintaining a high-quality 5G core network implementation. This work builds upon their contributions under the Apache-2.0 license.
