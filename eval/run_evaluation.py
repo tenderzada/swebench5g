@@ -190,38 +190,37 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     )
     go_files = [f.strip() for f in file_list.strip().split('\n') if f.strip()]
 
-    # Step 2: Read the most relevant source files (from problem statement hints)
+    # Step 2: Read source files, with line numbers for precise patching
     source_contents = {}
     for fpath in go_files[:20]:  # limit to avoid token overflow
-        rc, content, _ = docker_exec(container_id, f"cat {fpath}", timeout=10)
+        rc, content, _ = docker_exec(container_id, f"cat -n {fpath}", timeout=10)
         if rc == 0 and len(content) < 15000:  # skip huge files
             rel_path = fpath.replace(workdir + "/", "")
             source_contents[rel_path] = content
 
-    # Step 3: Build prompt
+    # Step 3: Build prompt with numbered source lines
     files_text = ""
     for path, content in source_contents.items():
         files_text += f"\n--- {path} ---\n{content}\n"
 
     system_prompt = (
         "You are an expert Go developer fixing bugs in the free5GC 5G core network. "
-        "Read the bug description and source code, then output ONLY a unified diff patch. "
-        "Output the patch in standard `diff -u` / `git diff` format:\n\n"
-        "```diff\n"
-        "--- a/<relative/path/to/file.go>\n"
-        "+++ b/<relative/path/to/file.go>\n"
-        "@@ -line,count +line,count @@\n"
-        " context line\n"
-        "-removed line\n"
-        "+added line\n"
-        " context line\n"
+        "Read the bug description and source code, then output your fix as SEARCH/REPLACE blocks.\n\n"
+        "Format:\n"
+        "```\n"
+        "FILE: <relative/path/to/file.go>\n"
+        "SEARCH:\n"
+        "<exact lines from the original code to find>\n"
+        "REPLACE:\n"
+        "<the replacement code>\n"
+        "END\n"
         "```\n\n"
         "Rules:\n"
-        "- Output ONLY the diff, no explanations before or after.\n"
-        "- Use correct relative paths from the project root.\n"
-        "- Include 3 lines of context around each change.\n"
+        "- The SEARCH block must contain EXACT lines copied from the source (including whitespace).\n"
+        "- Use enough context lines (3-5) to make the SEARCH unique in the file.\n"
+        "- Keep changes minimal — only fix the described bug.\n"
         "- Do NOT modify test files.\n"
-        "- Keep changes minimal — only fix the described bug."
+        "- Output ONLY the SEARCH/REPLACE block, no explanations."
     )
 
     user_prompt = f"## Bug Description\n\n{problem}\n\n## Source Files\n{files_text}"
@@ -260,94 +259,67 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     except Exception:
         pass
 
-    # Step 5: Extract diff from response and apply via git apply
+    # Step 5: Parse SEARCH/REPLACE blocks and apply
     import re
     import base64
 
-    # Extract diff content — may be wrapped in ```diff ... ``` or bare
-    diff_content = reply.strip()
-
-    # Strip markdown code fence if present
-    fence_match = re.search(r'```(?:diff)?\s*\n(.*?)```', diff_content, re.DOTALL)
+    # Strip markdown fences
+    clean = reply.strip()
+    fence_match = re.search(r'```(?:\w*)\s*\n(.*?)```', clean, re.DOTALL)
     if fence_match:
-        diff_content = fence_match.group(1).strip()
+        clean = fence_match.group(1).strip()
 
-    # Ensure it looks like a diff (has --- or @@ markers)
-    if '---' not in diff_content and '@@' not in diff_content:
-        return False, f"Qwen response is not a valid diff (length={len(reply)}). Debug: {debug_path}"
+    # Parse FILE / SEARCH / REPLACE / END blocks
+    block_pattern = r'FILE:\s*(.+?)\s*\nSEARCH:\n(.*?)\nREPLACE:\n(.*?)\nEND'
+    blocks = re.findall(block_pattern, clean, re.DOTALL)
 
-    # Apply the patch — try multiple strategies
-    b64 = base64.b64encode(diff_content.encode('utf-8')).decode('ascii')
+    if not blocks:
+        # Fallback: try diff format
+        if '---' in clean and '@@' in clean:
+            b64 = base64.b64encode(clean.encode('utf-8')).decode('ascii')
+            rc, _, _ = docker_exec(
+                container_id,
+                f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply -C0 --recount /tmp/qwen.patch 2>&1",
+                timeout=30
+            )
+            if rc == 0:
+                return True, ""
+        return False, f"Could not parse SEARCH/REPLACE blocks from Qwen response (length={len(reply)}). Debug: {debug_path}"
 
-    # Strategy 1: strict git apply
-    rc, out1, _ = docker_exec(
-        container_id,
-        f"echo '{b64}' | base64 -d > /tmp/qwen.patch && cd {workdir} && git apply /tmp/qwen.patch 2>&1",
-        timeout=30
-    )
-    if rc == 0:
+    applied = 0
+    errors = []
+    for rel_path, search, replace in blocks:
+        rel_path = rel_path.strip()
+        full_path = f"{workdir}/{rel_path}"
+
+        # Read current file
+        rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
+        if rc != 0:
+            errors.append(f"Cannot read {rel_path}")
+            continue
+
+        # Find and replace
+        search_text = search.strip()
+        replace_text = replace.strip()
+
+        if search_text in current:
+            new_content = current.replace(search_text, replace_text, 1)
+            b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
+            rc, _, _ = docker_exec(
+                container_id,
+                f"echo '{b64}' | base64 -d > {full_path}",
+                timeout=30
+            )
+            if rc == 0:
+                applied += 1
+            else:
+                errors.append(f"Failed to write {rel_path}")
+        else:
+            errors.append(f"SEARCH block not found in {rel_path} (len={len(search_text)})")
+
+    if applied > 0:
         return True, ""
-
-    # Strategy 2: git apply with fuzzy matching
-    rc, out2, _ = docker_exec(
-        container_id,
-        f"cd {workdir} && git apply -C0 --recount /tmp/qwen.patch 2>&1",
-        timeout=30
-    )
-    if rc == 0:
-        return True, ""
-
-    # Strategy 3: extract added lines from diff and apply via Python script
-    # This handles LLM-generated patches where context lines don't match exactly
-    apply_script = r'''
-import re, sys
-with open("/tmp/qwen.patch") as f:
-    patch = f.read()
-# Parse each file in the diff
-file_pattern = r'--- a/(.+?)\n\+\+\+ b/(.+?)\n((?:@@.*?(?=\n--- |\Z))+)'
-for m in re.finditer(file_pattern, patch, re.DOTALL):
-    target = m.group(2)
-    hunks = m.group(3)
-    # For each hunk, find context lines and insert added lines
-    for hunk in re.finditer(r'@@[^@]*@@[^\n]*\n(.*?)(?=\n@@|\Z)', hunks, re.DOTALL):
-        lines = hunk.group(1).split("\n")
-        # Find the first context line (no +/- prefix) to anchor
-        anchor = None
-        add_after_anchor = []
-        for line in lines:
-            if line.startswith(" ") and not anchor:
-                anchor = line[1:]  # strip leading space
-            elif line.startswith("+"):
-                add_after_anchor.append(line[1:])
-        if anchor and add_after_anchor:
-            fullpath = "''' + workdir + r'''/" + target
-            try:
-                with open(fullpath) as sf:
-                    src = sf.read()
-                # Find anchor and insert after it
-                idx = src.find(anchor)
-                if idx >= 0:
-                    insert_pos = src.index("\n", idx) + 1
-                    insert_text = "\n".join(add_after_anchor) + "\n"
-                    src = src[:insert_pos] + insert_text + src[insert_pos:]
-                    with open(fullpath, "w") as sf:
-                        sf.write(src)
-                    print(f"Applied to {target}")
-                    sys.exit(0)
-            except Exception as e:
-                print(f"Error: {e}")
-sys.exit(1)
-'''
-    apply_b64 = base64.b64encode(apply_script.encode('utf-8')).decode('ascii')
-    rc, out3, _ = docker_exec(
-        container_id,
-        f"echo '{apply_b64}' | base64 -d > /tmp/apply_patch.py && python3 /tmp/apply_patch.py 2>&1",
-        timeout=30
-    )
-    if rc == 0:
-        return True, ""
-
-    return False, f"All apply strategies failed. Debug: {debug_path}\n{out1}\n{out2}\n{out3}"
+    return False, f"No blocks applied. {'; '.join(errors)}. Debug: {debug_path}"
 
 
 def _run_manual_patch(container_id, workdir):
