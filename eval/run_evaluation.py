@@ -108,6 +108,8 @@ def run_agent_in_container(
         return _run_aider(container_id, model, workdir, problem, timeout)
     elif agent == "codex-cli":
         return _run_codex_cli(container_id, model, workdir, problem, timeout)
+    elif agent == "qwen":
+        return _run_qwen(container_id, model, workdir, problem, timeout)
     elif agent == "manual-patch":
         # For testing: apply a pre-prepared patch
         return _run_manual_patch(container_id, workdir)
@@ -152,6 +154,113 @@ def _run_codex_cli(container_id, model, workdir, problem, timeout):
     )
     code, stdout, stderr = docker_exec(container_id, cmd, timeout=timeout)
     return code == 0, stderr[:500] if code != 0 else ""
+
+
+def _run_qwen(container_id, model, workdir, problem, timeout):
+    """Run Qwen model via DashScope OpenAI-compatible API to fix the bug.
+
+    Workflow:
+    1. Read the buggy source files from the container
+    2. Send problem + source to Qwen API
+    3. Parse the response for code changes
+    4. Apply changes back to the container
+
+    Env vars:
+        DASHSCOPE_API_KEY: DashScope API key (required)
+        DASHSCOPE_BASE_URL: API base URL (default: https://dashscope.aliyuncs.com/compatible-mode/v1)
+    """
+    import openai
+
+    api_key = os.environ.get("DASHSCOPE_API_KEY")
+    if not api_key:
+        return False, "DASHSCOPE_API_KEY not set"
+
+    base_url = os.environ.get(
+        "DASHSCOPE_BASE_URL",
+        "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+
+    client = openai.OpenAI(api_key=api_key, base_url=base_url)
+
+    # Step 1: List Go source files in the project
+    code, file_list, _ = docker_exec(
+        container_id,
+        f"find {workdir} -name '*.go' -not -path '*/vendor/*' -not -name '*_test.go' | head -50",
+        timeout=30
+    )
+    go_files = [f.strip() for f in file_list.strip().split('\n') if f.strip()]
+
+    # Step 2: Read the most relevant source files (from problem statement hints)
+    source_contents = {}
+    for fpath in go_files[:20]:  # limit to avoid token overflow
+        rc, content, _ = docker_exec(container_id, f"cat {fpath}", timeout=10)
+        if rc == 0 and len(content) < 15000:  # skip huge files
+            rel_path = fpath.replace(workdir + "/", "")
+            source_contents[rel_path] = content
+
+    # Step 3: Build prompt
+    files_text = ""
+    for path, content in source_contents.items():
+        files_text += f"\n--- {path} ---\n{content}\n"
+
+    system_prompt = (
+        "You are an expert Go developer fixing bugs in the free5GC 5G core network. "
+        "Read the bug description and source code, then output ONLY the corrected file(s). "
+        "For each file you modify, output in this exact format:\n\n"
+        "=== FILE: <relative/path/to/file.go> ===\n"
+        "<complete file content>\n"
+        "=== END FILE ===\n\n"
+        "Do NOT modify test files. Only fix the bug described."
+    )
+
+    user_prompt = f"## Bug Description\n\n{problem}\n\n## Source Files\n{files_text}"
+
+    # Step 4: Call Qwen API
+    try:
+        response = client.chat.completions.create(
+            model=model or "qwen3.5-flash",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt[:60000]},  # token limit safety
+            ],
+            temperature=0.1,
+            max_tokens=16000,
+        )
+        reply = response.choices[0].message.content
+    except Exception as e:
+        return False, f"Qwen API error: {str(e)[:300]}"
+
+    # Step 5: Parse response and apply file changes
+    import re
+    file_pattern = r'=== FILE: (.+?) ===\n(.*?)\n=== END FILE ==='
+    matches = re.findall(file_pattern, reply, re.DOTALL)
+
+    if not matches:
+        # Try alternative format: ```go blocks with filename comments
+        alt_pattern = r'(?:// File: |// )(.+\.go)\n```go\n(.*?)```'
+        matches = re.findall(alt_pattern, reply, re.DOTALL)
+
+    if not matches:
+        return False, f"Could not parse file changes from Qwen response (length={len(reply)})"
+
+    applied = 0
+    for rel_path, content in matches:
+        rel_path = rel_path.strip()
+        full_path = f"{workdir}/{rel_path}"
+        # Write the file content to the container
+        escaped = content.replace("'", "'\\''")
+        rc, _, err = docker_exec(
+            container_id,
+            f"cat > {full_path} << 'QWEN_EOF'\n{content}\nQWEN_EOF",
+            timeout=10
+        )
+        if rc == 0:
+            applied += 1
+
+    if applied == 0:
+        return False, "No files successfully written to container"
+
+    return True, ""
 
 
 def _run_manual_patch(container_id, workdir):
@@ -330,7 +439,7 @@ def main():
     parser.add_argument("--dataset", default="dataset/swebench5g.jsonl",
                         help="Path to dataset JSONL file")
     parser.add_argument("--agent", required=True,
-                        choices=["claude-code", "aider", "codex-cli", "manual-patch", "all"],
+                        choices=["claude-code", "aider", "codex-cli", "qwen", "manual-patch", "all"],
                         help="Agent to evaluate")
     parser.add_argument("--model", default="opus-4.6",
                         help="Model to use with the agent")
@@ -365,7 +474,7 @@ def main():
         agents = [
             ("claude-code", "opus-4.6"),
             ("claude-code", "sonnet-4.6"),
-            ("aider", "opus-4.6"),
+            ("qwen", "qwen3.5-flash"),
             ("codex-cli", "gpt-4.1"),
         ]
     else:
