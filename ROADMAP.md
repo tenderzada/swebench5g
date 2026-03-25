@@ -1,270 +1,201 @@
-# SWE-Bench 5G Roadmap
+# SWE-Bench 5G Development Roadmap
 
-## Current Status (v0.1)
+## Current Status (v0.2) — March 2026
 
-- 1 validated task instance (PCF Issue #879)
-- Docker image built and tested
-- Dataset published on HuggingFace
-- Paper draft (NeurIPS D&B format)
-- No agent evaluation results yet
-- No evaluation harness
+### Completed
 
----
+- [x] 10 validated task instances across 7 NFs
+- [x] Dataset published on HuggingFace (v0.2)
+- [x] Docker-based evaluation harness with Qwen adapter
+- [x] Specification-as-Skill A/B framework with 10 3GPP excerpts
+- [x] Preliminary baseline: Qwen3.5-Flash (0% resolve, 100% bug detection)
+- [x] Project showcase page (GitHub Pages)
+- [x] Paper draft with Spec-as-Skill angle (NeurIPS D&B format)
+- [x] Chinese tutorial (11 chapters)
+- [x] Automated pipeline: mine (280 candidates) → build → validate → evaluate
+- [x] Batch build/validate script with --clean mode
+- [x] Dual test strategy: direct call + diff-based intent test
 
-## Phase 1: Scale Dataset to 30+ Instances (Priority: HIGH)
+### In Progress
 
-### Why
-- SWE-Bench Mobile has 50 tasks, BeyondSWE has 500
-- 1 instance is a proof-of-concept, not a benchmark
-- Reviewers will expect at least 30-50 instances for a D&B paper
-
-### How
-
-#### 1.1 Mine Candidate Issues from All free5GC Sub-repos
-
-Target repositories (each NF is a separate repo):
-
-| Repo | NF | Priority |
-|------|----|----------|
-| free5gc/amf | AMF | High |
-| free5gc/smf | SMF | High |
-| free5gc/pcf | PCF | Done (1) |
-| free5gc/upf | UPF | High |
-| free5gc/udm | UDM | Medium |
-| free5gc/udr | UDR | Medium |
-| free5gc/ausf | AUSF | Medium |
-| free5gc/nrf | NRF | Medium |
-| free5gc/nssf | NSSF | Low |
-| free5gc/n3iwf | N3IWF | Low |
-| free5gc/nas | NAS lib | High |
-| free5gc/ngap | NGAP lib | High |
-| free5gc/pfcp | PFCP lib | High |
-| free5gc/openapi | OpenAPI models | Medium |
-
-#### 1.2 Automate Candidate Screening
-
-Build a script (`scripts/mine_issues.py`) that:
-1. Uses GitHub API to fetch closed issues with linked merged PRs
-2. Filters: has code changes, not pure refactor/docs/deps
-3. Identifies base_commit and fix_commit
-4. Extracts affected files and functions
-5. Outputs candidate list with metadata
-
-Reference: BeyondSWE automated their pipeline across 246 repos.
-
-#### 1.3 Semi-Automate Test Generation
-
-The biggest bottleneck: free5GC has almost zero existing tests.
-Strategy:
-- Use LLM to draft fail-to-pass tests from issue description + diff
-- Human review and refine
-- Validate with the 3-step check (existing PASS, fail FAIL, fix ALL PASS)
-
-#### 1.4 Templatize Docker Image Building
-
-Create a reusable Dockerfile template + build script:
-- Input: repo name, base_commit, test files
-- Output: validated Docker image
-- Reference: BeyondSWE's `pre_commands` pattern for environment setup
-
-### Deliverable
-- 30+ validated instances across AMF/SMF/PCF/UPF/NAS/NGAP
-- Automated mining + semi-automated test generation pipeline
-- All images built and pushed to Docker Hub
+- [ ] Validate pcf_pr57, smf_pr112, udm_pr78
+- [ ] Fix amf_pr191 (wrong parent commit)
+- [ ] Validate 10 remaining instances (second batch)
 
 ---
 
-## Phase 2: Build Evaluation Harness (Priority: HIGH)
+## Phase 1: Complete Dataset & Validation (Priority: CRITICAL)
 
-### Why
-- BeyondSWE has a complete evaluation framework
-- SWE-Bench Mobile has patch-to-task routing + automated scoring
-- Without a harness, nobody can reproduce our results
+**Goal**: 20+ fully validated instances with 3GPP spec excerpts
 
-### How
+| Task | Status | Notes |
+|------|--------|-------|
+| Validate pcf_pr57 | Pending | Last fix pushed, needs re-test |
+| Validate smf_pr112 (medium) | Pending | Multi-file: chf_service.go + nrf_service.go |
+| Validate udm_pr78 (medium) | Pending | Multi-file: notifier.go + api_httpcallback.go |
+| Fix amf_pr191 parent commit | Blocked | Parent already contains fix |
+| Validate 10 second-batch instances | Pending | Have PLACEHOLDER commits, need filling |
+| Write specs for new validated instances | Ongoing | Template established |
+| Update HuggingFace to v0.3 | After validation | |
 
-#### 2.1 Evaluation Runner (`eval/run_evaluation.py`)
+---
 
-Design following BeyondSWE's approach:
-```
-For each task instance:
-  1. Pull Docker image
-  2. Start container
-  3. Inject agent (via docker exec or API)
-  4. Agent reads problem_statement, writes patch
-  5. Extract patch (git diff)
-  6. Run test suite
-  7. Record: resolved/not, time, tokens used
+## Phase 2: Agent Baseline Experiments (Priority: HIGH)
+
+**Goal**: Fill paper Table 6 with real data across multiple agents
+
+### 2.1 Fix Qwen Evaluation Pipeline
+
+The single-turn API approach has fundamental limitations for code editing. Options:
+
+| Approach | Effort | Expected Result |
+|----------|--------|----------------|
+| Fix output parsing (current) | Low | Still likely 0% due to edit precision |
+| Use Qwen via Aider (agentic) | Medium | Should improve significantly |
+| Use Qwen via OpenRouter + Claude Code style | Medium | Needs adapter |
+
+**Decision**: Focus on agentic tools (Claude Code, Aider) rather than fixing single-turn pipeline.
+
+### 2.2 Agentic Agent Evaluation
+
+| Agent | Model | Status | Notes |
+|-------|-------|--------|-------|
+| Claude Code | Opus 4.6 | Not started | Install CLI in Docker image |
+| Claude Code | Sonnet 4.6 | Not started | |
+| Aider | Qwen3.5-Flash | Not started | Aider supports OpenAI-compatible APIs |
+| Aider | Claude Sonnet 4.6 | Not started | |
+| Codex CLI | GPT-4.1 | Not started | |
+
+**Deliverable**: Resolve rate table for paper, broken down by agent, model, NF, difficulty.
+
+### 2.3 Analysis Dimensions
+
+- [ ] Per-NF resolve rate
+- [ ] Per-bug-type resolve rate
+- [ ] Agent behavior analysis (does it read spec references?)
+- [ ] Failure mode classification
+
+---
+
+## Phase 3: Specification-as-Skill A/B Experiment (Priority: HIGH)
+
+**Goal**: Answer the core research question with quantitative data
+
+### 3.1 Run A/B Experiments
+
+```bash
+# For each agent that achieves >0% resolve rate:
+python eval/run_evaluation.py --agent <agent> --model <model> --ab-test --runs 3
 ```
 
-#### 2.2 Agent Adapters
+### 3.2 Expected Analysis
 
-Build adapters for each agent to standardize the interface:
-- Claude Code: run inside container via CLI
-- Cursor: use headless mode or API
-- Codex CLI: run inside container
-- OpenCode: run inside container
-- Aider: run inside container
+| Hypothesis | Metric | Expected |
+|-----------|--------|----------|
+| H1: Simple nil checks don't need spec | Δ resolve rate for nil-pointer bugs | ~0% |
+| H2: Protocol semantics bugs need spec | Δ resolve rate for spec-dependent bugs | >0% |
+| H3: Token overhead is modest | Avg token increase | <50% |
 
-Reference: SWE-Bench Mobile tested 4 agents x 11 models = 22 configurations.
+### 3.3 Paper Deliverable
 
-#### 2.3 Metrics
-
-Following SWE-Bench conventions:
-- **Resolve Rate**: % of instances where all FAIL_TO_PASS pass and all PASS_TO_PASS still pass
-- **Test Pass Rate**: average % of individual tests passed across instances
-- Breakdown by: NF type, difficulty, bug type, lines changed
-
-#### 2.4 Result Dashboard
-
-Generate a summary table + per-instance breakdown, similar to:
-- BeyondSWE's per-task-type results
-- SWE-Bench Mobile's agent x model matrix
-
-### Deliverable
-- `eval/` directory with runner, agent adapters, and scoring
-- Reproducible evaluation on 3+ agent-model combinations
-- Results table for the paper
+- Table: A/B results per instance (with/without spec)
+- Bar chart: Δ resolve rate by bug type
+- Token overhead analysis
 
 ---
 
-## Phase 3: Run Baseline Experiments (Priority: HIGH)
+## Phase 4: Scale to 30+ Instances (Priority: MEDIUM)
 
-### Why
-- Paper Table 5 is currently TBD
-- Reviewers need quantitative results to assess the benchmark's value
+### 4.1 Add Medium & Hard Difficulty
 
-### How
+| Difficulty | Current | Target | Source |
+|-----------|---------|--------|--------|
+| Easy | 10 | 20 | candidates.json (22 remaining) |
+| Medium | 2 (unvalidated) | 8 | candidates.json |
+| Hard | 0 | 2+ | CrossNF candidates |
 
-#### 3.1 Agent-Model Configurations to Test
+### 4.2 Expand NF Coverage
 
-| Agent | Models | Total Configs |
-|-------|--------|---------------|
-| Claude Code | Opus 4.6, Sonnet 4.6, Haiku 4.5 | 3 |
-| Cursor | Opus 4.6, Sonnet 4.6, GPT-5 | 3 |
-| Codex CLI | GPT-4.1, GPT-5 | 2 |
-| Aider | Opus 4.6, Sonnet 4.6 | 2 |
-| **Total** | | **10** |
+| NF | Current | Target |
+|----|---------|--------|
+| AMF | 3 | 5 |
+| PCF | 2 | 3 |
+| SMF | 1 | 3 |
+| UDM | 1 | 3 |
+| UPF | 0 | 2 |
+| Others | 3 | 4 |
 
-#### 3.2 Experiment Protocol
+### 4.3 Add CrossNF Tasks
 
-For each (agent, model, task):
-- 3 independent runs (for variance estimation)
-- Record: resolved (bool), time (s), tokens consumed, patch size
-- Timeout: 30 min per instance
-
-Reference: SWE-Bench Mobile ran 22 configurations; BeyondSWE reported per-task-type results.
-
-#### 3.3 Analysis Dimensions
-
-1. **Overall resolve rate** by agent and model
-2. **By NF type**: Are PCF bugs easier than AMF bugs?
-3. **By difficulty**: Easy vs Medium vs Hard
-4. **By bug type**: nil pointer vs logic error vs protocol non-compliance
-5. **Spec-dependence analysis**: Do tasks referencing 3GPP specs have lower resolve rates?
-6. **Agent behavior analysis**: Do agents read the 3GPP spec references?
-
-### Deliverable
-- Complete results for paper Tables 5+
-- Analysis figures for paper Section 6
+- AMF-SMF registration failure
+- SMF-UPF PFCP signaling bug
+- Requires docker-compose for multi-container setup
 
 ---
 
-## Phase 4: Add 5G-Specific Innovations (Priority: MEDIUM)
+## Phase 5: Paper Finalization (Priority: MEDIUM)
 
-### Why
-- Need differentiation from simply "SWE-Bench but in Go"
-- SWE-Bench Mobile's key innovation was multi-modal; we need ours
+### 5.1 Content Checklist
 
-### How
+- [ ] Abstract: finalized with quantitative results
+- [ ] Section 6 (Spec-as-Skill): fill A/B experiment data
+- [ ] Section 7 (Baseline): fill agent comparison table
+- [ ] Section 7.3 (Failure Analysis): add qualitative examples
+- [ ] Figures: resolve rate bar charts, A/B comparison, token overhead
+- [ ] Appendix: full instance table, spec excerpt examples
 
-#### 4.1 3GPP Specification Augmentation (Multi-Modal)
+### 5.2 Target Venue
 
-Inspired by SWE-Bench Mobile's PRD + Figma:
-- Extract relevant 3GPP TS clauses for each task
-- Include protocol signaling flow diagrams (from TS 23.502) as images
-- Test whether providing spec context improves resolve rate
+- Primary: **NeurIPS 2025 Datasets & Benchmarks Track**
+- Backup: EMNLP 2025 Industry Track, ICSE 2026 NIER
 
-This creates a unique "specification-grounded coding" evaluation axis.
+### 5.3 Submission Timeline
 
-#### 4.2 SearchSWE-5G: Spec-Aware Search Framework
+| Milestone | Target Date | Status |
+|-----------|-------------|--------|
+| 20+ validated instances | April 2026 | In progress |
+| Agent baselines complete | April 2026 | Not started |
+| A/B experiment complete | May 2026 | Framework ready |
+| Paper draft v2 | May 2026 | v1 done |
+| Internal review | May 2026 | |
+| Submission | June 2026 | |
 
-Inspired by BeyondSWE's SearchSWE:
-- Augment agent with a 3GPP specification search tool
-- Agent can query: "What does TS 29.514 say about suppFeat bit 1?"
-- Measure: does spec search improve resolve rate?
+---
 
-Implementation: Index 3GPP specs as a RAG knowledge base, expose via MCP tool.
+## Phase 6: Future Directions (Priority: LOW)
 
-#### 4.3 CrossNF Task Instances
+### 6.1 SearchSWE-5G
 
-BeyondSWE's CrossRepo is our CrossNF:
-- Bugs that span AMF + SMF, or SMF + UPF
-- Require multi-container Docker setup (docker-compose)
-- Agent must trace signaling flow across NF boundaries
+Build a 3GPP specification search tool via MCP:
+- Agent can query: "What does TS 29.514 say about suppFeat?"
+- Evaluate: does RAG-based spec access improve resolve rate?
+- Comparison: curated excerpt (Phase 3) vs RAG retrieval
 
-#### 4.4 Protocol Compliance Testing
+### 6.2 Multi-Modal Inputs
+
+- Add 3GPP signaling flow diagrams (from TS 23.502) as images
+- Test vision-capable models (GPT-4o, Claude Sonnet) on diagram understanding
+- Parallels SWE-Bench Mobile's Figma design inputs
+
+### 6.3 Protocol Compliance Testing
 
 Beyond "does the code not crash":
-- Test that NF responses conform to 3GPP message formats
-- Verify state machine transitions follow specification
-- This is unique to telecom—no existing benchmark tests spec compliance
+- Verify NF responses conform to 3GPP message formats
+- Check state machine transitions follow specification
+- Unique to telecom domain
 
-### Deliverable
-- 3GPP spec RAG tool (MCP server)
-- 5-10 CrossNF task instances
-- Protocol compliance test layer
+### 6.4 Beyond Bug Fixing
 
----
-
-## Phase 5: Paper Revision (Priority: MEDIUM)
-
-### What to Add to the Paper
-
-#### Based on SWE-Bench Mobile's Structure
-- [ ] Detailed failure analysis (what types of errors do agents make?)
-- [ ] Prompt engineering experiments (defensive programming vs complex prompts)
-- [ ] Agent x Model performance matrix (heatmap figure)
-- [ ] Difficulty correlation analysis (resolve rate vs files/lines changed)
-- [ ] Qualitative examples of agent successes and failures
-
-#### Based on BeyondSWE's Structure
-- [ ] Per-task-type breakdown (SingleNF vs CrossNF vs Protocol vs DataPlane)
-- [ ] Comparison with SWE-Bench performance on similar bugs in Python
-- [ ] SearchSWE-5G ablation: with vs without spec search
-- [ ] Scaling analysis: how does performance change as dataset grows?
-
-#### 5G-Specific Contributions to Highlight
-- [ ] Specification-grounded evaluation (unique to telecom)
-- [ ] Distributed NF coordination challenges
-- [ ] Go language coverage (fills gap in existing benchmarks)
-- [ ] Protocol state machine reasoning
-
-### Deliverable
-- Revised paper with full results and analysis
-- Submission-ready for NeurIPS 2025 D&B track
+- Feature implementation tasks (e.g., add 3GPP R16 feature)
+- Protocol migration tasks (e.g., R15 → R16 upgrade)
+- Configuration debugging tasks
 
 ---
 
-## Timeline
+## Immediate Next Actions
 
-| Phase | Duration | Deadline | Dependency |
-|-------|----------|----------|------------|
-| Phase 1: Scale to 30+ instances | 4-6 weeks | May 2026 | None |
-| Phase 2: Evaluation harness | 2-3 weeks | May 2026 | Can parallel with Phase 1 |
-| Phase 3: Baseline experiments | 2-3 weeks | June 2026 | Phase 1 + 2 |
-| Phase 4: 5G innovations | 3-4 weeks | June 2026 | Phase 1 |
-| Phase 5: Paper revision | 2-3 weeks | July 2026 | Phase 3 + 4 |
-
-**NeurIPS 2025 D&B submission deadline: typically late May/early June.**
-Check exact date and adjust timeline accordingly.
-
----
-
-## Immediate Next Actions (This Week)
-
-1. [ ] Build `scripts/mine_issues.py` to auto-scan all free5GC sub-repos
-2. [ ] Create Issue #713 (AMF panic) and #794 (SMF crash) as next two instances
-3. [ ] Design Dockerfile template for rapid instance creation
-4. [ ] Set up eval harness skeleton
-5. [ ] Run Claude Code on the pilot task to get first baseline number
+1. **Validate remaining instances** on server: pcf_pr57, smf_pr112, udm_pr78
+2. **Install Aider in Docker** and test on pilot instance
+3. **Run Claude Code** on pilot instance (if API key available)
+4. **Upload v0.3 to HuggingFace** after more validations pass
+5. **Enable GitHub Pages** (Settings → Pages → /docs)
