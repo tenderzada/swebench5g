@@ -6,3 +6,4 @@ paper/*.out
 paper/*.synctex.gz
 .cache/
 instances/*/.build/
+paper/
