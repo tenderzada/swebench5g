@@ -18,15 +18,22 @@ SWE-Bench 5G 是一个用于**评估 AI 编程 Agent 在 5G 核心网软件工�
 2. **分布式架构**：多个网络功能（NF）协同工作，bug 可能跨服务传播
 3. **协议状态机**：注册、会话建立等流程涉及复杂的多步状态机
 
-### 1.3 项目灵感来源
+### 1.3 核心研究问题
+
+> **3GPP 协议规范作为"技能文档"注入 AI Agent，能否提升其修复 5G bug 的能力？**
+
+这个问题受 [SWE-Skills-Bench](https://arxiv.org/abs/2603.15401) 启发。该研究发现 80% 的技能注入对 Agent 没有帮助。我们用 3GPP 规范作为"技能"，在 5G 领域验证这一结论。
+
+### 1.4 项目灵感来源
 
 | 项目 | 特点 | 我们借鉴了什么 |
 |------|------|---------------|
 | [SWE-Bench](https://arxiv.org/abs/2310.06770) | Python bug 修复，2294 个实例 | 任务格式：issue → patch → fail-to-pass 测试 |
 | [SWE-Bench Mobile](https://arxiv.org/abs/2602.09540) | iOS 开发，多模态输入（PRD+Figma） | 多模态思路 + **diff-based intent test** |
 | [BeyondSWE](https://arxiv.org/abs/2603.03194) | 500 实例，Docker 镜像打包 | Docker 环境：每个 bug 一个完整的可复现环境 |
+| [SWE-Skills-Bench](https://arxiv.org/abs/2603.15401) | 49 个技能，A/B 测试 | **Specification-as-Skill**：规范注入 A/B 实验框架 |
 
-### 1.4 当前规模
+### 1.5 当前规模
 
 | 指标 | 数值 |
 |------|------|
@@ -515,7 +522,121 @@ eval/results/<timestamp>/summary.txt
 
 ---
 
-## 六、项目结构
+## 六、Specification-as-Skill：3GPP 规范注入实验
+
+### 6.1 核心思想
+
+受 [SWE-Skills-Bench](https://arxiv.org/abs/2603.15401) 启发，该研究发现 **80% 的技能注入（skill injection）对 AI Agent 没有帮助**。我们将这个方法论应用到 5G 领域，提出一个具体问题：
+
+> **将 3GPP 技术规范的相关条款作为"技能文档"注入 Agent 的 prompt 中，能否提升其修复 5G bug 的成功率？**
+
+这在 5G 领域尤为重要，因为很多 bug 的根因正是开发者误读了 3GPP 规范。例如：
+
+| 实例 | Bug 根因 | 3GPP 规范怎么说 |
+|------|---------|---------------|
+| pilot_pcf_879 | 假设 AfRoutReq 总是存在 | TS 29.514：AfRoutReq 是 **OPTIONAL** |
+| nssf_pr39 | 直接调用 Expiry.IsZero() | TS 29.531：Expiry 是 **OPTIONAL** |
+| udm_pr45 | keyIndex 只检查上界 | TS 29.509：keyIndex 从 **1** 开始 |
+| pcf_pr57 | 404 后没有 return | TS 29.507：错误响应后须**停止处理** |
+
+### 6.2 3GPP 规范摘录
+
+为每个实例编写了精炼的规范摘录（`specs/` 目录），包含：
+
+1. **TS 章节号和标题** — 定位到具体条款
+2. **相关条款原文** — 字段是否 OPTIONAL、有效值范围
+3. **Key Implication** — 将规范条款与具体 bug 关联
+
+示例（`specs/pilot_pcf_879.md`）：
+
+```markdown
+## TS 29.514 — Policy Authorization Service
+### Section 5.6.2.2: Supported Features
+The `suppFeat` attribute negotiates optional features.
+Bit 1 (InfluenceOnTrafficRouting): PCF supports traffic routing.
+However, `AfRoutingRequirement` (AfRoutReq) is **OPTIONAL** —
+its absence does not constitute an error.
+
+## Key Implication
+When suppFeat=1 but AfRoutReq is absent, the PCF must handle
+this gracefully. The buggy code assumes AfRoutReq is always present.
+```
+
+### 6.3 A/B 实验设计
+
+```
+┌─────────────────────────────────────────────┐
+│  实验组 (Condition B: with-spec)            │
+│  Agent 收到：                                │
+│    problem_statement.md                      │
+│    + 3GPP 规范摘录（specs/<id>.md）          │
+│    + 源代码                                  │
+├─────────────────────────────────────────────┤
+│  对照组 (Condition A: without-spec)          │
+│  Agent 收到：                                │
+│    problem_statement.md                      │
+│    + 源代码                                  │
+│    （没有 3GPP 规范）                        │
+└─────────────────────────────────────────────┘
+
+唯一变量：是否提供 3GPP 规范摘录
+其他条件完全相同：Docker 镜像、测试套件、评估标准
+```
+
+### 6.4 研究假设
+
+| 假设 | 内容 | 预期 |
+|------|------|------|
+| **H1** | 简单 nil check bug 不需要规范知识 | 规范注入**无效果** |
+| **H2** | 协议语义相关 bug 需要规范知识 | 规范注入**有帮助** |
+| **H3** | 规范摘录的 token 开销适中 | 增加 <50% token |
+
+### 6.5 运行 A/B 实验
+
+```bash
+# 设置环境
+export DASHSCOPE_API_KEY=sk-xxxx
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY
+
+# 方式 1：分别跑两组
+python eval/run_evaluation.py --agent qwen --model qwen3.5-flash --without-spec
+python eval/run_evaluation.py --agent qwen --model qwen3.5-flash --with-spec
+
+# 方式 2：一键 A/B 测试（自动跑两组并对比）
+python eval/run_evaluation.py --agent qwen --model qwen3.5-flash --ab-test
+
+# 指定规范目录（默认 specs/）
+python eval/run_evaluation.py --agent qwen --model qwen3.5-flash --ab-test --specs-dir specs/
+```
+
+### 6.6 结果指标
+
+A/B 测试完成后，报告自动输出对比：
+
+```
+Specification-as-Skill A/B Comparison:
+  Without spec: 0/10 (0.0%) avg_tokens=5000
+  With spec:    2/10 (20.0%) avg_tokens=7500
+  Delta:        +20.0% resolve rate | +2500 tokens
+```
+
+衡量指标：
+- **Resolve Rate Delta (Δ)** — 规范注入带来的 resolve rate 变化
+- **Token Overhead** — 规范注入的额外 token 消耗
+- **Per-Instance Analysis** — 哪类 bug 从规范中受益最大
+
+### 6.7 意义
+
+这个实验框架的价值在于：
+
+1. **测试一个具体的假设** — 不仅报告 resolve rate，而是回答"规范有没有用"
+2. **对标 SWE-Skills-Bench** — 使用相同的 A/B 方法论，结果可直接对比
+3. **指导实践** — 如果规范有用，说明 5G Agent 应内置规范检索能力；如果没用，说明瓶颈在其他地方
+4. **独特的论文贡献** — 首次在电信领域验证 skill injection 的效果
+
+---
+
+## 七、项目结构（更新）
 
 ```
 swebench5g/
@@ -571,6 +692,21 @@ swebench5g/
 │   ├── main.tex
 │   └── references.bib
 │
+├── specs/                      ← 3GPP 规范摘录（Specification-as-Skill）
+│   ├── pilot_pcf_879.md        ← TS 29.514 (suppFeat, AfRoutReq)
+│   ├── amf_pr118.md            ← TS 24.501 (NAS 安全头 7 字节)
+│   ├── amf_pr157.md            ← TS 24.501 (NAS PDU 不得为空)
+│   ├── amf_pr161.md            ← TS 38.413 (gNB-ID OPTIONAL)
+│   ├── ausf_pr52.md            ← TS 29.509 (resync 前须检查映射)
+│   ├── nrf_pr79.md             ← TS 29.510 + RFC 6749 (未知参数)
+│   ├── nssf_pr39.md            ← TS 29.531 (Expiry OPTIONAL)
+│   ├── pcf_pr57.md             ← TS 29.507 (404 后须 return)
+│   ├── smf_pr125.md            ← TS 29.518 (传输失败须优雅处理)
+│   └── udm_pr45.md             ← TS 29.509 (keyIndex >= 1)
+│
+├── docs/                       ← GitHub Pages 展示页面
+│   └── index.html
+│
 ├── candidates.json             ← 280 个候选（mine_issues.py 输出）
 ├── ROADMAP.md                  ← 项目路线图
 └── tutorial_zh.md              ← 本文件
@@ -578,9 +714,9 @@ swebench5g/
 
 ---
 
-## 七、5G 背景知识（给不熟悉电信的读者）
+## 八、5G 背景知识（给不熟悉电信的读者）
 
-### 7.1 什么是 5G 核心网？
+### 8.1 什么是 5G 核心网？
 
 5G 核心网（5GC）是 5G 网络的"大脑"，负责用户认证、会话管理、策略控制等。它由多个**网络功能（NF）**组成，每个 NF 是一个独立的微服务：
 
@@ -602,7 +738,7 @@ swebench5g/
 └─────────────────────────────────────────┘
 ```
 
-### 7.2 各 NF 的职责
+### 8.2 各 NF 的职责
 
 | NF | 全称 | 职责 | 类比 |
 |----|------|------|------|
@@ -615,7 +751,7 @@ swebench5g/
 | NRF | NF 注册发现 | 服务发现 | DNS |
 | NSSF | 切片选择 | 网络切片 | VLAN 管理器 |
 
-### 7.3 什么是 3GPP 规范？
+### 8.3 什么是 3GPP 规范？
 
 3GPP（第三代合作伙伴计划）是制定移动通信标准的国际组织。5G 核心网的行为由一系列**技术规范（TS）**定义：
 
@@ -628,7 +764,7 @@ swebench5g/
 
 在我们的 benchmark 中，部分 bug 的修复需要理解 3GPP 规范。例如 pilot 任务中，`suppFeat` 字段的含义定义在 TS 29.514 中。
 
-### 7.4 free5GC 简介
+### 8.4 free5GC 简介
 
 [free5GC](https://github.com/free5gc/free5gc) 是用 **Go 语言**编写的开源 5G 核心网实现：
 
@@ -640,7 +776,7 @@ swebench5g/
 
 ---
 
-## 八、常见问题
+## 九、常见问题
 
 ### Q: Docker build 时 GitHub/Go 模块下载超时？
 
@@ -714,7 +850,7 @@ print(ds[0]["problem_statement"])
 
 ---
 
-## 九、参与贡献
+## 十、参与贡献
 
 欢迎贡献新的 task instance！流程：
 
@@ -726,7 +862,7 @@ print(ds[0]["problem_statement"])
 
 ---
 
-## 十、引用
+## 十一、引用
 
 ```bibtex
 @misc{swebench5g2026,
