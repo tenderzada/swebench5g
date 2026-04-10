@@ -122,6 +122,8 @@ def run_agent_in_container(
         return _run_codex_cli(container_id, model, workdir, problem, timeout), {}
     elif agent == "qwen":
         return _run_qwen(container_id, model, workdir, problem, timeout)
+    elif agent == "multiturn":
+        return _run_multiturn(container_id, model, workdir, problem, timeout)
     elif agent == "manual-patch":
         # For testing: apply a pre-prepared patch
         return _run_manual_patch(container_id, workdir)
@@ -388,6 +390,215 @@ def _run_qwen(container_id, model, workdir, problem, timeout):
     return False, f"No edits applied ({len(inserts)} inserts, {len(replaces)} replaces, {len(searches)} searches). {'; '.join(errors)}. Debug: {debug_path}", token_info
 
 
+def _run_multiturn(container_id, model, workdir, problem, timeout):
+    """Multi-turn agentic agent: read → patch → test → feedback → retry.
+
+    Works with any OpenAI-compatible API (Qwen via DashScope, Claude via OpenRouter, etc.).
+
+    Env vars:
+        AGENT_API_KEY:   API key (required)
+        AGENT_BASE_URL:  API base URL (required)
+        AGENT_MODEL:     Model name override (optional, uses --model arg if unset)
+        AGENT_MAX_TURNS: Max turns (default: 5)
+    """
+    import openai
+    import re
+    import base64
+
+    api_key = os.environ.get("AGENT_API_KEY")
+    base_url = os.environ.get("AGENT_BASE_URL")
+    if not api_key or not base_url:
+        return False, "AGENT_API_KEY and AGENT_BASE_URL must be set", {}
+
+    model_name = os.environ.get("AGENT_MODEL", model)
+    max_turns = int(os.environ.get("AGENT_MAX_TURNS", "5"))
+    client = openai.OpenAI(api_key=api_key, base_url=base_url)
+
+    # Read source files
+    code, file_list, _ = docker_exec(
+        container_id,
+        f"find {workdir} -name '*.go' -not -path '*/vendor/*' -not -name '*_test.go' | head -50",
+        timeout=30
+    )
+    go_files = [f.strip() for f in file_list.strip().split('\n') if f.strip()]
+
+    source_contents = {}
+    for fpath in go_files[:20]:
+        rc, content, _ = docker_exec(container_id, f"cat -n {fpath}", timeout=10)
+        if rc == 0 and len(content) < 15000:
+            rel_path = fpath.replace(workdir + "/", "")
+            source_contents[rel_path] = content
+
+    files_text = ""
+    for path, content in source_contents.items():
+        files_text += f"\n--- {path} ---\n{content}\n"
+
+    system_prompt = (
+        "You are an expert Go developer fixing bugs in the free5GC 5G core network.\n"
+        "The source code is shown with line numbers.\n\n"
+        "Output your fix using SEARCH/REPLACE format:\n"
+        "FILE: <relative/path/to/file.go>\n"
+        "SEARCH:\n"
+        "<exact lines from the current code>\n"
+        "REPLACE:\n"
+        "<replacement code>\n"
+        "ENDCODE\n\n"
+        "Rules:\n"
+        "- The SEARCH block must match the current source EXACTLY (including whitespace).\n"
+        "- Make minimal changes. Prefer adding nil checks over rewriting functions.\n"
+        "- Output ONLY the fix block, no explanations.\n"
+        "- You may output multiple SEARCH/REPLACE blocks if needed."
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"## Bug Description\n\n{problem}\n\n## Source Files\n{files_text[:50000]}"}
+    ]
+
+    total_tokens = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    turn_log = []
+
+    for turn in range(1, max_turns + 1):
+        print(f"    Turn {turn}/{max_turns}...")
+
+        # Call LLM
+        try:
+            extra = {}
+            if "dashscope" in base_url:
+                extra["extra_body"] = {"enable_thinking": False}
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=16000,
+                **extra
+            )
+            reply = response.choices[0].message.content or ""
+            if not reply.strip():
+                reasoning = getattr(response.choices[0].message, 'reasoning_content', '') or ''
+                if reasoning:
+                    reply = reasoning
+
+            # Track tokens
+            if hasattr(response, 'usage') and response.usage:
+                total_tokens["prompt_tokens"] += response.usage.prompt_tokens or 0
+                total_tokens["completion_tokens"] += response.usage.completion_tokens or 0
+                total_tokens["total_tokens"] += response.usage.total_tokens or 0
+        except Exception as e:
+            turn_log.append(f"Turn {turn}: API error: {str(e)[:200]}")
+            break
+
+        if not reply.strip():
+            turn_log.append(f"Turn {turn}: Empty response")
+            messages.append({"role": "assistant", "content": reply})
+            messages.append({"role": "user", "content": "Your response was empty. Please output a SEARCH/REPLACE fix block."})
+            continue
+
+        messages.append({"role": "assistant", "content": reply})
+
+        # Save debug log
+        try:
+            with open(f"/tmp/multiturn_t{turn}_{int(time.time())}.txt", "w") as df:
+                df.write(reply)
+        except Exception:
+            pass
+
+        # Reset code before applying (clean slate each turn)
+        docker_exec(container_id, f"cd {workdir} && git checkout .", timeout=30)
+
+        # Parse and apply SEARCH/REPLACE blocks
+        clean = reply.strip()
+        fence_match = re.search(r'```(?:\w*)\s*\n(.*?)```', clean, re.DOTALL)
+        if fence_match:
+            clean = fence_match.group(1).strip()
+
+        applied = 0
+        apply_errors = []
+
+        # SEARCH/REPLACE
+        search_pattern = r'FILE:\s*(.+?)\s*\nSEARCH:\n(.*?)\nREPLACE:\n(.*?)(?:\nENDCODE|\nEND\b|\Z)'
+        searches = re.findall(search_pattern, clean, re.DOTALL)
+
+        # Also try LINE-based insertion
+        insert_pattern = r'FILE:\s*(.+?)\s*\nLINE:\s*(\d+)\s*\nCODE:\n(.*?)\nENDCODE'
+        inserts = re.findall(insert_pattern, clean, re.DOTALL)
+
+        for rel_path, search, replace_code in searches:
+            rel_path = rel_path.strip()
+            full_path = f"{workdir}/{rel_path}"
+            rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
+            if rc != 0:
+                apply_errors.append(f"Cannot read {rel_path}")
+                continue
+            search_text = search.strip()
+            replace_text = replace_code.strip()
+            if search_text in current:
+                new_content = current.replace(search_text, replace_text, 1)
+                b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
+                rc, _, _ = docker_exec(container_id, f"echo '{b64}' | base64 -d > {full_path}", timeout=30)
+                if rc == 0:
+                    applied += 1
+                    continue
+            apply_errors.append(f"SEARCH not found in {rel_path}")
+
+        for rel_path, line_num, code_block in inserts:
+            rel_path = rel_path.strip()
+            line_num = int(line_num)
+            full_path = f"{workdir}/{rel_path}"
+            rc, current, _ = docker_exec(container_id, f"cat {full_path}", timeout=10)
+            if rc != 0:
+                apply_errors.append(f"Cannot read {rel_path}")
+                continue
+            lines = current.split('\n')
+            insert_idx = min(line_num - 1, len(lines))
+            new_lines = lines[:insert_idx] + code_block.strip().split('\n') + lines[insert_idx:]
+            new_content = '\n'.join(new_lines)
+            b64 = base64.b64encode(new_content.encode('utf-8')).decode('ascii')
+            rc, _, _ = docker_exec(container_id, f"echo '{b64}' | base64 -d > {full_path}", timeout=30)
+            if rc == 0:
+                applied += 1
+            else:
+                apply_errors.append(f"Failed to write {rel_path}")
+
+        if applied == 0:
+            turn_log.append(f"Turn {turn}: No edits applied. Errors: {'; '.join(apply_errors)}")
+            messages.append({"role": "user", "content":
+                f"Your patch could not be applied. Errors:\n{chr(10).join(apply_errors)}\n\n"
+                f"Make sure the SEARCH block matches the source code exactly. Try again."})
+            continue
+
+        turn_log.append(f"Turn {turn}: Applied {applied} edit(s)")
+
+        # Compile check
+        compile_rc, compile_out, compile_err = docker_exec(
+            container_id, f"cd {workdir} && go build ./...", timeout=120)
+        if compile_rc != 0:
+            compile_msg = (compile_out + compile_err)[:1500]
+            turn_log.append(f"Turn {turn}: Compilation failed")
+            messages.append({"role": "user", "content":
+                f"Patch applied but compilation failed:\n```\n{compile_msg}\n```\n"
+                f"Fix the compilation error and output a corrected SEARCH/REPLACE block."})
+            docker_exec(container_id, f"cd {workdir} && git checkout .", timeout=30)
+            continue
+
+        # Run tests
+        test_rc, test_out = run_tests_in_container(container_id, "all")
+        if test_rc == 0:
+            turn_log.append(f"Turn {turn}: ALL TESTS PASSED!")
+            print(f"    Turn {turn}: RESOLVED!")
+            print(f"    Turn log: {turn_log}")
+            return True, "", total_tokens
+
+        turn_log.append(f"Turn {turn}: Tests failed")
+        messages.append({"role": "user", "content":
+            f"Patch applied and compiled, but tests failed:\n```\n{test_out[:2000]}\n```\n"
+            f"Analyze the failure and output a corrected SEARCH/REPLACE block."})
+        docker_exec(container_id, f"cd {workdir} && git checkout .", timeout=30)
+
+    print(f"    Turn log: {turn_log}")
+    return False, f"Failed after {max_turns} turns. Log: {'; '.join(turn_log)}", total_tokens
+
+
 def _run_manual_patch(container_id, workdir):
     """Apply a pre-prepared patch for testing the harness."""
     code, _, stderr = docker_exec(
@@ -601,7 +812,7 @@ def main():
     parser.add_argument("--dataset", default="dataset/swebench5g.jsonl",
                         help="Path to dataset JSONL file")
     parser.add_argument("--agent", required=True,
-                        choices=["claude-code", "aider", "codex-cli", "qwen", "manual-patch", "all"],
+                        choices=["claude-code", "aider", "codex-cli", "qwen", "multiturn", "manual-patch", "all"],
                         help="Agent to evaluate")
     parser.add_argument("--model", default="opus-4.6",
                         help="Model to use with the agent")
