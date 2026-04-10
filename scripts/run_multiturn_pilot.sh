@@ -6,9 +6,17 @@
 #   export DASHSCOPE_API_KEY=sk-xxx
 #   bash scripts/run_multiturn_pilot.sh qwen
 #
+#   # GPT via OpenRouter
+#   export OPENROUTER_API_KEY=sk-or-xxx
+#   bash scripts/run_multiturn_pilot.sh gpt
+#
 #   # Claude via OpenRouter
 #   export OPENROUTER_API_KEY=sk-or-xxx
 #   bash scripts/run_multiturn_pilot.sh claude
+#
+#   # Kimi (Moonshot) via Moonshot API
+#   export MOONSHOT_API_KEY=sk-xxx
+#   bash scripts/run_multiturn_pilot.sh kimi
 #
 #   # Custom: any OpenAI-compatible API
 #   export AGENT_API_KEY=xxx AGENT_BASE_URL=https://... AGENT_MODEL=xxx
@@ -32,18 +40,30 @@ case "$MODE" in
         export AGENT_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
         export AGENT_MODEL="qwen3.5-flash"
         ;;
+    gpt)
+        if [ -z "$OPENROUTER_API_KEY" ]; then echo "ERROR: OPENROUTER_API_KEY not set"; exit 1; fi
+        export AGENT_API_KEY="$OPENROUTER_API_KEY"
+        export AGENT_BASE_URL="https://openrouter.ai/api/v1"
+        export AGENT_MODEL="openai/gpt-4.1"
+        ;;
     claude)
         if [ -z "$OPENROUTER_API_KEY" ]; then echo "ERROR: OPENROUTER_API_KEY not set"; exit 1; fi
         export AGENT_API_KEY="$OPENROUTER_API_KEY"
         export AGENT_BASE_URL="https://openrouter.ai/api/v1"
         export AGENT_MODEL="anthropic/claude-sonnet-4-6"
         ;;
+    kimi)
+        if [ -z "$MOONSHOT_API_KEY" ]; then echo "ERROR: MOONSHOT_API_KEY not set"; exit 1; fi
+        export AGENT_API_KEY="$MOONSHOT_API_KEY"
+        export AGENT_BASE_URL="https://api.moonshot.cn/v1"
+        export AGENT_MODEL="moonshot-v1-128k"
+        ;;
     custom)
         if [ -z "$AGENT_API_KEY" ] || [ -z "$AGENT_BASE_URL" ] || [ -z "$AGENT_MODEL" ]; then
             echo "ERROR: Set AGENT_API_KEY, AGENT_BASE_URL, AGENT_MODEL"; exit 1
         fi
         ;;
-    *) echo "Usage: $0 {qwen|claude|custom}"; exit 1 ;;
+    *) echo "Usage: $0 {qwen|gpt|claude|kimi|custom}"; exit 1 ;;
 esac
 
 export AGENT_MAX_TURNS="$MAX_TURNS"
