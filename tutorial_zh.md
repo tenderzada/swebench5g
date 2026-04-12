@@ -862,7 +862,293 @@ print(ds[0]["problem_statement"])
 
 ---
 
-## 十一、引用
+## 十一、Agent 评测实战指南
+
+本章记录了 2026-04-10 在远程服务器上从零开始运行 Agent 评测的完整过程，包括环境问题排查、多种 Agent 测试，以及实验结果。
+
+### 11.1 远程服务器环境准备
+
+#### Docker 启动问题排查
+
+远程服务器可能遇到 Docker 无法启动的问题。常见错误和解决方法：
+
+**问题 1：Docker daemon 无法启动**
+
+```bash
+sudo systemctl start docker
+# Job for docker.service failed...
+sudo systemctl status docker
+# Active: failed (Result: exit-code)
+```
+
+查看详细错误：
+
+```bash
+sudo journalctl -u docker.service -n 50 --no-pager
+```
+
+**问题 2：iptables 找不到**
+
+错误日志中出现：
+```
+executable file not found in $PATH (iptables)
+Failed to register "bridge" driver: Failed to create NAT chain
+```
+
+解决方法——在 Docker 配置中禁用 iptables：
+
+```bash
+sudo tee /etc/docker/daemon.json << 'EOF'
+{
+  "iptables": false,
+  "registry-mirrors": ["https://docker.lms.run"]
+}
+EOF
+
+sudo systemctl start docker
+docker ps   # 验证成功
+```
+
+**问题 3：大量残留容器导致启动慢**
+
+```bash
+# 清理所有容器
+sudo docker rm -f $(sudo docker ps -aq) 2>/dev/null
+
+# 如果 daemon 无响应，直接清理状态
+sudo systemctl stop docker
+sudo rm -rf /var/lib/docker/containers/*
+sudo systemctl start docker
+```
+
+**问题 4：完全重置 Docker（最后手段）**
+
+> 注意：会删除所有镜像和容器，需要重新构建
+
+```bash
+sudo systemctl stop docker
+sudo rm -rf /var/lib/docker
+sudo systemctl start docker
+```
+
+#### 构建 Pilot 镜像
+
+```bash
+cd swebench5g/pilot_pcf_879
+bash scripts/build_image.sh
+
+# 验证镜像
+docker images | grep swebench5g
+```
+
+### 11.2 Aider 评测（Agent 方式一）
+
+[Aider](https://github.com/Aider-AI/aider) 是一个开源 AI 编程 CLI 工具，支持接入几乎所有 LLM。
+
+#### 运行方法
+
+```bash
+cd swebench5g
+
+# 设置 Qwen API Key
+export DASHSCOPE_API_KEY=sk-xxx
+
+# 运行 Aider pilot 测试
+bash scripts/run_aider_pilot.sh
+
+# 可选：用 Claude（需要 OpenRouter）
+export OPENROUTER_API_KEY=sk-or-xxx
+bash scripts/run_aider_pilot.sh --claude
+```
+
+#### 脚本做了什么
+
+```
+Step 1: 启动 Docker 容器
+Step 2: 验证环境（existing tests PASS）
+Step 3: 确认 bug 存在（fail-to-pass tests FAIL）
+Step 4: 在容器内安装 Aider（pip install aider-chat）
+Step 5: Aider 全自动修复（--yes --no-auto-commits）
+Step 6: 提取 patch → 跑全部测试 → 输出结果
+```
+
+#### 结果
+
+Aider + Qwen3.5-Flash：**NOT RESOLVED**。Aider 没有找到目标源文件，只修改了 `.gitignore`。
+
+### 11.3 Multi-Turn Agent 评测（Agent 方式二，推荐）
+
+自建的多轮反馈循环 Agent，核心逻辑：
+
+```
+读代码 → LLM 生成 patch → 应用 patch → 编译 → 测试
+                                              ↓
+                                         失败？把错误反馈给 LLM → 重试
+                                              ↓
+                                         成功？ → RESOLVED
+```
+
+#### 支持的模型
+
+| 命令 | 模型 | API | 环境变量 |
+|------|------|-----|---------|
+| `qwen` | Qwen3.5-Flash | DashScope | `DASHSCOPE_API_KEY` |
+| `gpt` | GPT-4.1 | OpenRouter | `OPENROUTER_API_KEY` |
+| `claude` | Claude Sonnet 4.6 | OpenRouter | `OPENROUTER_API_KEY` |
+| `kimi` | moonshot-v1-128k | Moonshot API | `MOONSHOT_API_KEY` |
+| `custom` | 任意 | 任意 | `AGENT_API_KEY` + `AGENT_BASE_URL` + `AGENT_MODEL` |
+
+#### 运行方法
+
+```bash
+cd swebench5g
+
+# Qwen
+export DASHSCOPE_API_KEY=sk-xxx
+bash scripts/run_multiturn_pilot.sh qwen
+
+# Kimi
+export MOONSHOT_API_KEY=sk-xxx
+bash scripts/run_multiturn_pilot.sh kimi
+
+# Claude（需要代理，见 11.4 节）
+export OPENROUTER_API_KEY=sk-xxx
+export https_proxy=http://127.0.0.1:7897
+bash scripts/run_multiturn_pilot.sh claude
+
+# 自定义轮数
+AGENT_MAX_TURNS=10 bash scripts/run_multiturn_pilot.sh qwen
+```
+
+#### 输出目录
+
+```
+eval/results/multiturn_qwen_20260410_HHMMSS/
+├── agent_output.log     # Agent 完整输出
+├── agent_result.json    # 结构化结果
+├── patch.diff           # 生成的 patch
+├── step2.log            # 环境验证
+├── step3.log            # bug 确认
+├── step6_existing.log   # 修复后 existing tests
+└── step6_fail.log       # 修复后 fail-to-pass tests
+```
+
+### 11.4 OpenRouter 代理配置（香港/中国服务器）
+
+OpenRouter API 在部分地区有访问限制（403 "model not available in your region"）。解决方法：
+
+#### SSH 反向隧道
+
+前提：本地电脑运行 Clash Verge（或其他代理），端口 7897。
+
+**在本地 Windows 终端执行**：
+
+```bash
+ssh -R 7897:127.0.0.1:7897 用户名@服务器IP
+```
+
+**在服务器上**：
+
+```bash
+export https_proxy=http://127.0.0.1:7897
+export http_proxy=http://127.0.0.1:7897
+export OPENROUTER_API_KEY=sk-xxx
+bash scripts/run_multiturn_pilot.sh claude
+```
+
+> 注意：不要 `unset` 所有代理变量后直接访问 OpenRouter，会因为服务器地区限制而 403。
+
+### 11.5 Pilot 实验结果汇总（2026-04-10）
+
+| # | Agent | Model | Patch 应用? | 测试通过? | 状态 |
+|---|-------|-------|-----------|---------|------|
+| 1 | Single-turn API | Qwen3.5-Flash | 格式错误 | — | NOT RESOLVED |
+| 2 | Aider | Qwen3.5-Flash | 改了.gitignore | — | NOT RESOLVED |
+| 3 | Multi-turn (5轮) | Kimi 128k | 5轮全不匹配 | — | NOT RESOLVED |
+| 4 | Multi-turn (5轮) | Claude Sonnet 4.6 | **Turn 3,4 成功** | FAIL | NOT RESOLVED |
+| 5 | Multi-turn | GPT-4.1 | — | — | 403 地域限制 |
+
+#### 三个关键发现
+
+1. **Agentic 能力是瓶颈**：Qwen 能定位 bug 但单轮无法产出可用 patch
+2. **多轮反馈有帮助**：Claude 是唯一成功应用 patch 的模型（Turn 3→4 展示了错误驱动的修正）
+3. **SEARCH 精确匹配是 harness 瓶颈**：Kimi 理解了 bug 但卡在文本精确匹配
+
+#### 实验材料位置
+
+```
+docs/results/
+├── PILOT_SUMMARY.md              ← 总结对比
+├── aider_qwen_pilot/             ← Aider + Qwen 截图 + 分析
+├── multiturn_kimi_pilot/         ← Kimi 截图 + 分析
+└── multiturn_claude_pilot/       ← Claude 截图 + GPT 403 截图
+```
+
+### 11.6 通过评测框架批量运行（正式评测）
+
+除了 pilot 脚本外，也可以通过评测框架运行：
+
+```bash
+# 单个实例
+python eval/run_evaluation.py --agent multiturn --model qwen3.5-flash \
+    --instances pcf_issue_879
+
+# 全部实例
+python eval/run_evaluation.py --agent multiturn --model qwen3.5-flash
+
+# A/B 测试（有/无 3GPP spec）
+python eval/run_evaluation.py --agent multiturn --model qwen3.5-flash --ab-test
+```
+
+需要设置环境变量：
+
+```bash
+export AGENT_API_KEY=xxx
+export AGENT_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+export AGENT_MODEL=qwen3.5-flash
+export AGENT_MAX_TURNS=5
+```
+
+### 11.7 下次继续开发的检查清单
+
+1. **Docker 能否启动？**
+
+```bash
+sudo systemctl status docker
+# 如果 failed → 参考 11.1 排查
+```
+
+2. **Pilot 镜像是否存在？**
+
+```bash
+docker images | grep swebench5g
+# 如果没有 → cd pilot_pcf_879 && bash scripts/build_image.sh
+```
+
+3. **API Key 是否设置？**
+
+```bash
+# DashScope (Qwen)
+export DASHSCOPE_API_KEY=sk-xxx
+
+# Moonshot (Kimi)
+export MOONSHOT_API_KEY=sk-xxx
+
+# OpenRouter (Claude/GPT，需要代理)
+export OPENROUTER_API_KEY=sk-xxx
+export https_proxy=http://127.0.0.1:7897
+# 记得先在本地开 SSH 隧道：ssh -R 7897:127.0.0.1:7897 user@server
+```
+
+4. **跑测试**
+
+```bash
+bash scripts/run_multiturn_pilot.sh qwen    # 快速验证环境正常
+```
+
+---
+
+## 十二、引用
 
 ```bibtex
 @misc{swebench5g2026,
