@@ -1,6 +1,6 @@
 # SWE-Bench 5G
 
-**评估 AI 编程 Agent 在 5G 核心网工程任务上的表现**
+**评测 AI 编程 Agent 在电信网络工程任务上的表现**
 
 [数据集](https://huggingface.co/datasets/tenderzada/SWEBench5G) | [项目主页](https://tenderzada.github.io/swebench5g/) | [论文](paper/main.tex) | [中文教程](tutorial_zh.md)
 

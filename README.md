@@ -1,6 +1,6 @@
 # SWE-Bench 5G
 
-**Evaluating AI Coding Agents on 5G Core Network Engineering Tasks**
+**Benchmarking AI Coding Agents on Telecom Network Engineering Tasks**
 
 [Dataset](https://huggingface.co/datasets/tenderzada/SWEBench5G) | [Project Page](https://tenderzada.github.io/swebench5g/) | [Paper](paper/main.tex) | [Chinese Tutorial](tutorial_zh.md)
 
