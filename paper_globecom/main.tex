@@ -290,30 +290,30 @@ Table~\ref{tab:ab_results} presents the specification-as-skill results. We evalu
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrccrrc@{}}
 \toprule
-Spec Skill & \#Tasks & Pass$^+$ & Pass$^-$ & $\Delta P$ & $C^+$ & $\rho$ \\
+Skill Domain & \#Tasks & Pass$^+$ & Pass$^-$ & $\Delta P$ & $C^+$ & $\rho$ \\
 \midrule
 \multicolumn{7}{@{}l}{Generic bug type (nil/crash)} \\
 \midrule
-TS 24.501 (NAS) & 8 & 37.5 & 37.5 & \textcolor{gray}{0.0} & 3.4K & +11\% \\
-TS 38.413 (NGAP) & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.2K & +9\% \\
-TS 29.510 (NRF) & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.5K & +13\% \\
-TS 29.509 (AUSF) & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.1K & +8\% \\
-TS 29.531 (NSSF) & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.3K & +10\% \\
-TS 29.518 (AMF) & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.6K & +14\% \\
+NAS protocol        & 8 & 37.5 & 37.5 & \textcolor{gray}{0.0} & 3.4K & +11\% \\
+RAN signaling       & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.2K & +9\% \\
+NF discovery        & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.5K & +13\% \\
+Authentication      & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.1K & +8\% \\
+Slice selection      & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.3K & +10\% \\
+Mobility mgmt.      & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.6K & +14\% \\
 \midrule
 \multicolumn{7}{@{}l}{Spec-dependent bug type (validation/logic)} \\
 \midrule
-TS 29.514 (PCF) & 6 & 33.3 & 16.7 & \textcolor{green!60!black}{+16.7} & 3.8K & +15\% \\
-TS 29.507 (PCF) & 4 & 25.0 & 0.0 & \textcolor{green!60!black}{+25.0} & 3.7K & +14\% \\
-TS 29.512 (SMF) & 5 & 20.0 & 0.0 & \textcolor{green!60!black}{+20.0} & 3.9K & +16\% \\
-TS 23.501 (Arch) & 5 & 20.0 & 20.0 & \textcolor{gray}{0.0} & 4.1K & +18\% \\
+Policy authorization & 6 & 33.3 & 16.7 & \textcolor{green!60!black}{+16.7} & 3.8K & +15\% \\
+Policy control       & 4 & 25.0 & 0.0 & \textcolor{green!60!black}{+25.0} & 3.7K & +14\% \\
+Session mgmt.        & 5 & 20.0 & 0.0 & \textcolor{green!60!black}{+20.0} & 3.9K & +16\% \\
+System architecture  & 5 & 20.0 & 20.0 & \textcolor{gray}{0.0} & 4.1K & +18\% \\
 \midrule
 Overall & 50 & 30.0 & 24.0 & \textcolor{green!60!black}{+6.0} & 3.5K & +12\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Three specifications show positive skill utility deltas: TS~29.514 for Policy Authorization, TS~29.507 for Policy Control, and TS~29.512 for Session Management Policy. These deltas range from +16.7\% to +25.0\% and correspond to bugs where the correct behavior is defined by field optionality or value range constraints in the specification. The remaining seven specifications show zero delta, covering bugs that require only generic defensive programming such as nil guards.
+Three skill domains show positive utility deltas: policy authorization, policy control, and session management. These deltas range from +16.7\% to +25.0\% and correspond to bugs where the correct behavior is defined by field optionality or value range constraints in the specification. The remaining seven specifications show zero delta, covering bugs that require only generic defensive programming such as nil guards.
 
 The average token overhead is 12\%, reflecting the concise nature of curated 3GPP excerpts compared to full specification documents.
 
