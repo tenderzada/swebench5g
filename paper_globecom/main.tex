@@ -34,7 +34,7 @@ AI coding agents have achieved remarkable progress on general-purpose software b
 
 Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, specification-driven vertical domains, where code correctness is defined by external normative documents rather than unit tests alone, remain entirely unexamined.
 
-The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of 3GPP Technical Specifications (TS), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). Bugs in this domain differ fundamentally from those in typical open-source projects: correctness is governed by normative protocol text, distributed microservice architectures span multiple NFs communicating via HTTP/2 and PFCP, and protocol state machines impose complex multi-step procedures for registration, session management, and mobility. These characteristics make 5G software an ideal testbed for probing the capability boundaries of current coding agents.
+The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). Bugs in this domain differ fundamentally from those in typical open-source projects: correctness is governed by normative protocol text, distributed microservice architectures span multiple NFs communicating via HTTP/2 and the Packet Forwarding Control Protocol (PFCP), and protocol state machines impose complex multi-step procedures for registration, session management, and mobility. These characteristics make 5G software an ideal testbed for probing the capability boundaries of current coding agents.
 
 To this end, we propose SWE-Bench~5G, the first benchmark designed to investigate a concrete question: can AI coding agents resolve real-world bugs in 5G core network software? The benchmark draws task instances from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, spanning 9~NFs. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests, and a dual test strategy is introduced to handle the complex runtime dependencies unique to telecom code. In addition, since many original issues cite specific 3GPP specification clauses, we leverage these references to construct concise specification context documents, enabling a controlled evaluation of whether providing domain knowledge improves agent performance.
 
@@ -114,7 +114,7 @@ Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Pha
 
 \subsection{Task Formulation}
 
-Each task instance is a tuple $\mathcal{T} = (I, O, E)$ where $I$ is the input comprising a problem statement with optional 3GPP references and the NF source at the buggy commit, $O$ is the expected output in the form of a unified diff patch, and $E$ is the evaluation consisting of \texttt{PASS\_TO\_PASS} and \texttt{FAIL\_TO\_PASS} test suites. An instance is resolved if and only if all F2P tests pass and all P2P tests remain passing after applying the patch.
+Each task instance is a tuple $\mathcal{T} = (I, O, E)$ where $I$ is the input comprising a problem statement with optional 3GPP references and the NF source at the buggy commit, $O$ is the expected output in the form of a unified diff patch, and $E$ is the evaluation consisting of \texttt{PASS\_TO\_PASS} and \texttt{FAIL\_TO\_PASS} test suites. An instance is resolved if and only if all fail-to-pass (F2P) tests pass and all pass-to-pass (P2P) tests remain passing after applying the patch.
 
 \subsection{Source Projects}
 
@@ -141,13 +141,13 @@ free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular archit
 
 \subsection{Dual Test Strategy}
 
-Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as SCTP connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
+Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as Stream Control Transmission Protocol (SCTP) connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
 
 Strategy~A, Direct Call, applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's native recovery mechanism, such as \texttt{defer/recover} in Go and signal handlers in C, to detect panics. Strategy~B, Diff-Based Intent, inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
 
 \subsection{Dataset Construction Pipeline}
 
-Our automated pipeline operates in five stages: (1)~mine closed issues with linked merged PRs from 33 repositories via the GitHub API, yielding 555 candidates; (2)~filter by quality criteria including clear descriptions and source-modifying PRs; (3)~identify parent (buggy) and fix commits; (4)~construct fail-to-pass tests using Strategy~A or~B; (5)~batch-build Docker images and run three-step validation (existing tests pass, F2P tests fail at parent, all tests pass after fix). Only instances passing all checks are included. Table~\ref{tab:dataset} summarizes the resulting dataset.
+Our automated pipeline operates in five stages: (1)~mine closed issues with linked merged pull requests from 33 repositories via the GitHub API, yielding 555 candidates; (2)~filter by quality criteria including clear descriptions and source-modifying PRs; (3)~identify parent (buggy) and fix commits; (4)~construct fail-to-pass tests using Strategy~A or~B; (5)~batch-build Docker images and run three-step validation (existing tests pass, F2P tests fail at parent, all tests pass after fix). Only instances passing all checks are included. Table~\ref{tab:dataset} summarizes the resulting dataset.
 
 \begin{table}[t]
 \centering
@@ -294,8 +294,8 @@ Skill Domain & \#Tasks & Pass$^+$ & Pass$^-$ & $\Delta P$ & $C^+$ & $\rho$ \\
 \midrule
 \multicolumn{7}{@{}l}{Generic bug type (nil/crash)} \\
 \midrule
-NAS protocol        & 8 & 37.5 & 37.5 & \textcolor{gray}{0.0} & 3.4K & +11\% \\
-RAN signaling       & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.2K & +9\% \\
+NAS\textsuperscript{a} protocol & 8 & 37.5 & 37.5 & \textcolor{gray}{0.0} & 3.4K & +11\% \\
+RAN\textsuperscript{b} signaling & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.2K & +9\% \\
 NF discovery        & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.5K & +13\% \\
 Authentication      & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.1K & +8\% \\
 Slice selection      & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.3K & +10\% \\
@@ -310,6 +310,7 @@ System architecture  & 5 & 20.0 & 20.0 & \textcolor{gray}{0.0} & 4.1K & +18\% \\
 \midrule
 Overall & 50 & 30.0 & 24.0 & \textcolor{green!60!black}{+6.0} & 3.5K & +12\% \\
 \bottomrule
+\multicolumn{7}{@{}l}{\scriptsize \textsuperscript{a}Non-Access Stratum. \textsuperscript{b}Radio Access Network.}
 \end{tabular}
 \end{table}
 
