@@ -2,38 +2,65 @@
 
 ## Fig. 1: System Overview (Pipeline Diagram)
 
+Reference style: BeyondSWE/SearchSWE architecture diagram (two-phase, left-right layout, blue color scheme, clean academic style).
+
 ### Gemini Prompt
 
 ```
-Draw a two-phase system architecture diagram for an AI coding agent evaluation pipeline,
-styled for an IEEE academic paper. Use a clean, professional design with a blue color scheme.
+Draw a two-phase evaluation pipeline diagram for a research paper titled "SWE-Bench 5G".
+The diagram should be clean, professional, and styled for an IEEE conference paper.
+Use a blue color scheme on a white background. No 3D effects, no drop shadows.
 
-Phase 1 (left side, light blue background #E8F0FE, labeled "Phase 1: Agent Coding"):
-- A rounded box "Issue / Problem Statement" in light orange (#FFF3E0)
-  with a solid blue arrow pointing right to
-- A central rounded box "AI Agent (LLM)" in light yellow (#FFF9C4)
-- Above the agent, a dashed-border rounded box "3GPP Spec (Optional)" in light blue (#E3F2FD)
-  with a gray dashed arrow pointing down to the agent
-- Below the agent, a rounded box "Docker Container (NF Source Code)" in light blue (#E3F2FD)
-  with bidirectional solid blue arrows connecting to the agent
-- A solid blue arrow from the agent pointing right to a rounded box "Proposed Patch" in light orange
+LAYOUT: Left-right, two phases separated visually.
 
-Phase 2 (right side, light green background #E8F5E9, labeled "Phase 2: Rigorous Evaluation"):
-- Arrow from "Proposed Patch" to "Fresh Docker Container (Clean Env)"
-- Arrow down to "Apply Patch"
-- Arrow down to "Run Test Suite (P2P and F2P)"
-- Arrow down to "Verified Result" with a small checkmark icon
+PHASE 1 (left side, light blue background #E8F0FE, label at top: "Phase 1: Agent Coding"):
 
-Style requirements:
-- Rounded rectangles with thin borders
-- Clean sans-serif font (similar to Helvetica)
-- No 3D effects, no drop shadows
-- Solid blue arrows (#1565C0) with arrowheads
-- Dashed gray arrow (#9E9E9E) for the optional spec connection
-- White overall background
-- Phase labels in bold at the top of each phase region
-- Similar to the BeyondSWE/SearchSWE architecture diagram style from academic papers
-- Figure should be landscape orientation, approximately 3.5 inches wide
+Top-left corner: a small scroll/document icon labeled "Prevent cheating blocklist" 
+with a dashed arrow pointing down toward the input.
+
+Left input: a dashed-border box "Issue / Problem Statement" in light tan.
+Below it or beside it: a dashed-border box "3GPP Spec Excerpt (Optional)" in light tan.
+Both have arrows pointing right into the central element.
+
+Center: a large rounded box "SWE-Bench 5G Agent" in white with a bold border. 
+This is the main element of Phase 1.
+
+Below the agent: a rounded box "Docker Container (Local Context)" containing 
+an icon of a whale (Docker logo) and text "NF Source Code". 
+The agent and the Docker container are connected with bidirectional arrows:
+  - Down arrow labeled "Exec Commands"
+  - Up arrow labeled "Exec Outputs"
+
+The agent also has bidirectional arrows going up to a region labeled 
+"Iterative Reasoning & Feedback" (shown as a curved return arrow or loop icon),
+representing the multi-turn feedback loop (up to K turns).
+
+Right output of the agent: arrow pointing right to a dashed-border box 
+"Proposed Patch" in light tan.
+
+PHASE 2 (right side, light green background #E8F5E9, label at top: "Phase 2: Rigorous Evaluation"):
+
+Arranged vertically, top to bottom, connected by downward arrows:
+1. "Fresh Docker Container (Clean Env)" with a Docker whale icon
+2. "Apply Patch"
+3. "Run Test Suite (P2P & F2P)"  
+4. "Verified Result" with a checkmark icon
+
+An arrow connects "Proposed Patch" from Phase 1 to the top of Phase 2.
+
+STYLE:
+- Rounded rectangles with thin borders (1pt)
+- Font: clean sans-serif (Helvetica or similar), 9-10pt
+- Arrows: solid blue (#1565C0) with filled arrowheads, 1.5pt width
+- Dashed elements use gray (#9E9E9E) dashed lines
+- Phase background colors are subtle washes, not solid fills
+- The central "SWE-Bench 5G Agent" box should be the visually dominant element
+- Overall dimensions: approximately 7 inches wide x 3 inches tall (IEEE double-column width)
+- The diagram should closely follow the layout of the SearchSWE architecture diagram 
+  from BeyondSWE (arxiv 2603.03194), but adapted for the 5G domain:
+  replace "Search Tool / Browser Tool" with "3GPP Spec Excerpt"
+  replace "SearchSWE (Agent)" with "SWE-Bench 5G Agent"
+  keep the Docker container and two-phase structure
 ```
 
 ## Fig. 2: Bar Chart (Already generated as fig_results.pdf)
