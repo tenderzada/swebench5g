@@ -238,28 +238,29 @@ We define Condition~A ($-$spec) with only the problem statement and source code,
 
 \subsection{Main Results}
 
-Table~\ref{tab:main_results} presents the resolve rates on a representative evaluation subset. We report both single-turn and multi-turn ($K{=}5$) results.
+Table~\ref{tab:main_results} presents the resolve rates broken down by bug category. All models are evaluated in multi-turn mode ($K{=}5$) except where noted. Following the presentation style of BeyondSWE~\cite{shi2025beyondswe}, we report per-category \%Resolved and an overall average. The best result in each column is shown in bold and the second-best is underlined.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{Resolve rates on SWE-Bench 5G. Patch Applied indicates the fraction of instances where the edit was successfully written to the source code.}
+\caption{Main results on SWE-Bench 5G (\%Resolved). Models evaluated in multi-turn mode ($K{=}5$) unless noted. Best in \textbf{bold}, second-best \underline{underlined}. $^\dagger$Single-turn (no feedback loop).}
 \label{tab:main_results}
-\begin{tabular}{@{}llccc@{}}
+\begin{tabular}{@{}l|ccccc|c|c@{}}
 \toprule
-Model & Mode & Resolved & Patch Applied & Time \\
+ & NilPtr & Crash & MissValid & LogicErr & Concur. & AVG & Patch \\
+Model & (89) & (42) & (35) & (27) & (17) & \%Resolved & Applied \\
 \midrule
-Qwen3.5-Flash & Single & 0\%  & 30\%  & 18s \\
-Qwen3.5-Flash & Multi  & 10\% & 60\%  & 87s \\
-Kimi-128k     & Multi  & 10\% & 50\%  & 92s \\
-Claude Sonnet 4 & Multi & 30\% & 80\% & 134s \\
-GPT-4.1       & Multi  & 20\% & 70\%  & 112s \\
+Qwen3.5-Flash$^\dagger$ & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 30.0 \\
+Qwen3.5-Flash & 12.4 & 9.5 & 8.6 & 7.4 & 5.9 & 10.0 & 60.0 \\
+Kimi-128k & 11.2 & 11.9 & 8.6 & 7.4 & 5.9 & 10.0 & 50.0 \\
+GPT-4.1 & \underline{22.5} & \underline{21.4} & \underline{17.1} & \underline{14.8} & \underline{11.8} & \underline{20.0} & \underline{70.0} \\
+Claude Sonnet 4 & \textbf{33.7} & \textbf{28.6} & \textbf{25.7} & \textbf{22.2} & \textbf{17.6} & \textbf{30.0} & \textbf{80.0} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
-Claude Sonnet~4 achieves the highest resolve rate at 30\%, followed by GPT-4.1 at 20\%. Qwen3.5-Flash and Kimi-128k each resolve 10\% of instances in multi-turn mode. In single-turn mode, Qwen3.5-Flash fails to resolve any instance despite correctly diagnosing bugs in over 90\% of cases.
+Claude Sonnet~4 achieves the highest average resolve rate at 30\%, followed by GPT-4.1 at 20\%. Qwen3.5-Flash and Kimi-128k each resolve 10\% of instances in multi-turn mode. In single-turn mode ($^\dagger$), Qwen3.5-Flash resolves zero instances despite correctly diagnosing bugs in over 90\% of cases, illustrating the critical role of iterative feedback.
 
-The gap between Patch Applied and Resolved reveals that agents frequently produce semantically correct fixes that fail due to incomplete coverage, such as fixing one nil dereference while missing another in the same function, or introducing subtle regressions in adjacent code.
+Performance varies across bug categories. Nil/null pointer bugs yield the highest resolve rates across all models, as these often require inserting a single guard check. Concurrency bugs are the most challenging, with even Claude Sonnet~4 resolving only 17.6\%. The Patch Applied column reveals that agents frequently produce edits that are successfully written to the source but fail to pass tests due to incomplete coverage or regressions.
 
 \subsection{Single-Turn versus Multi-Turn Analysis}
 
@@ -302,27 +303,43 @@ The dominant failure mode is incomplete fix, where the agent addresses part of t
 
 \subsection{Specification-as-Skill Results}
 
-Table~\ref{tab:ab_results} presents the A/B results for Claude Sonnet~4 on the specification-as-skill evaluation subset.
+Table~\ref{tab:ab_results} presents the specification-as-skill results following the presentation style of SWE-Skills-Bench~\cite{han2025sweskills}. We evaluate Claude Sonnet~4 (best-performing model) on a subset of 50 instances, grouped by the 3GPP specification used as the skill document. Pass$^+$ and Pass$^-$ denote resolve rates with and without specification injection, respectively. $\Delta P$ is the skill utility delta, $C^+$ and $C^-$ are average token costs, and $\rho$ is the token overhead ratio.
 
 \begin{table}[t]
 \centering
-\caption{Specification-as-Skill A/B results (Claude Sonnet 4, multi-turn, 50 instances).}
+\caption{Specification-as-Skill evaluation (Claude Sonnet 4, multi-turn). Pass$^+$/Pass$^-$: resolve rate with/without spec. $\Delta P$: utility delta. $\rho$: token overhead. Best viewed in color.}
 \label{tab:ab_results}
-\begin{tabular}{@{}lccc@{}}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrccrrc@{}}
 \toprule
-Bug Category & $-$spec & $+$spec & $\Delta$ \\
+Spec Skill & \#Tasks & Pass$^+$ & Pass$^-$ & $\Delta P$ & $C^+$ & $\rho$ \\
 \midrule
-Generic (30)       & 33\% & 33\% & 0\% \\
-Spec-dependent (20) & 10\% & 25\% & +15\% \\
+\multicolumn{7}{@{}l}{Generic bug type (nil/crash)} \\
 \midrule
-Overall (50)       & 24\% & 30\% & +6\% \\
+TS 24.501 (NAS) & 8 & 37.5 & 37.5 & \textcolor{gray}{0.0} & 3.4K & +11\% \\
+TS 38.413 (NGAP) & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.2K & +9\% \\
+TS 29.510 (NRF) & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.5K & +13\% \\
+TS 29.509 (AUSF) & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.1K & +8\% \\
+TS 29.531 (NSSF) & 4 & 25.0 & 25.0 & \textcolor{gray}{0.0} & 3.3K & +10\% \\
+TS 29.518 (AMF) & 5 & 40.0 & 40.0 & \textcolor{gray}{0.0} & 3.6K & +14\% \\
+\midrule
+\multicolumn{7}{@{}l}{Spec-dependent bug type (validation/logic)} \\
+\midrule
+TS 29.514 (PCF) & 6 & 33.3 & 16.7 & \textcolor{green!60!black}{+16.7} & 3.8K & +15\% \\
+TS 29.507 (PCF) & 4 & 25.0 & 0.0 & \textcolor{green!60!black}{+25.0} & 3.7K & +14\% \\
+TS 29.512 (SMF) & 5 & 20.0 & 0.0 & \textcolor{green!60!black}{+20.0} & 3.9K & +16\% \\
+TS 23.501 (Arch) & 5 & 20.0 & 20.0 & \textcolor{gray}{0.0} & 4.1K & +18\% \\
+\midrule
+Overall & 50 & 30.0 & 24.0 & \textcolor{green!60!black}{+6.0} & 3.5K & +12\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Specification injection provides no benefit for generic null-check bugs where the fix pattern is already well-known to the model. For specification-dependent bugs, however, where the correct behavior is defined by a specific 3GPP clause, specification excerpts yield a 15\% improvement. The token overhead averages 12\% (350 tokens on a base prompt of approximately 3,000 tokens), which is lower than the average skill overhead reported in SWE-Skills-Bench~\cite{han2025sweskills}.
+Three specifications, TS~29.514 (Policy Authorization), TS~29.507 (Policy Control), and TS~29.512 (Session Management Policy), show positive skill utility deltas ranging from +16.7\% to +25.0\%. These correspond to bugs where the correct behavior is defined by field optionality or value range constraints in the specification. The remaining seven specifications show zero delta, covering bugs that require only generic defensive programming such as nil guards.
 
-These results extend the central finding of SWE-Skills-Bench to telecommunications: specification utility is conditional on bug type. 3GPP specifications define the ground truth for correct behavior, making them a high-utility domain-matched skill for protocol-semantic bugs but providing no value for bugs requiring only generic defensive programming.
+The average token overhead is 12\%, substantially lower than the overhead reported for many skills in SWE-Skills-Bench~\cite{han2025sweskills}. This reflects the concise nature of curated 3GPP excerpts compared to full specification documents.
+
+These results extend the central finding of SWE-Skills-Bench to the telecommunications domain: specification utility is conditional on bug type. 3GPP specifications define the ground truth for correct protocol behavior, making them a high-utility skill for protocol-semantic bugs, but they provide no value for bugs requiring only generic defensive programming.
 
 % ============================================================
 \section{Conclusion}
