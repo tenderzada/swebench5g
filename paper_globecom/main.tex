@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-AI coding agents have demonstrated strong performance on general-purpose software benchmarks, yet no existing benchmark evaluates their capabilities on telecommunications software. We introduce SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.}, the first benchmark for evaluating AI coding agents on real bug-fixing tasks from open-source 5G core network implementations. The benchmark comprises 210 validated task instances spanning 9 Network Functions (NFs) from three open-source projects, each packaged as a self-contained Docker environment with automated tests. We evaluate four LLMs under single-turn and multi-turn agent paradigms and find that agentic capabilities, rather than model intelligence alone, constitute the primary bottleneck: all models correctly diagnose bugs at rates exceeding 91\%, but only multi-turn agents successfully apply patches. We further investigate specification-as-skill injection in the 3GPP domain and find that protocol specification excerpts yield a modest resolve rate improvement concentrated on specification-dependent bugs while providing no benefit on generic null-check bugs.
+AI coding agents have demonstrated strong performance on general-purpose software benchmarks, yet no existing benchmark evaluates their capabilities on telecommunications software. We introduce SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.}, the first benchmark for evaluating AI coding agents on real bug-fixing tasks from open-source 5G core network implementations. The benchmark draws real bug-fixing tasks from three open-source 5G core projects, each packaged as a self-contained Docker environment with automated tests. We evaluate four LLMs under single-turn and multi-turn agent paradigms and find that agentic capabilities, rather than model intelligence alone, constitute the primary bottleneck: all models correctly diagnose bugs at rates exceeding 91\%, but only multi-turn agents successfully apply patches. We further investigate specification-as-skill injection in the 3GPP domain and find that protocol specification excerpts yield a modest resolve rate improvement concentrated on specification-dependent bugs while providing no benefit on generic null-check bugs.
 \end{abstract}
 
 % ============================================================
@@ -36,7 +36,7 @@ Large language models (LLMs) have enabled a new class of AI coding agents that a
 
 The 5G core network (5GC) presents a compelling test case. Defined by hundreds of 3GPP Technical Specifications (TS), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). Bugs in this domain differ fundamentally from those in typical open-source projects. First, correctness is defined by normative protocol text, not just passing tests. Second, distributed microservice architectures span multiple NFs communicating via HTTP/2 and PFCP. Third, protocol state machines impose complex multi-step procedures for registration, session management, and mobility.
 
-We present SWE-Bench~5G, the first benchmark targeting AI coding agents on telecom network software. Drawing from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, we construct 210 validated task instances spanning 9~NFs from over 500 candidates mined across 30+ repositories. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests for fully reproducible evaluation.
+We present SWE-Bench~5G, the first benchmark targeting AI coding agents on telecom network software. Drawing from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, we construct a validated set of task instances spanning 9~NFs. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests for fully reproducible evaluation.
 
 Recent work has introduced the concept of skill injection, where domain-specific reference documents are provided to agents alongside the task description to supply knowledge that may be absent from the model's training data. In the 5G domain, the natural candidate for such skill documents is the 3GPP Technical Specification suite, which defines the normative behavior of every protocol interface and message field. This raises a natural question: can 3GPP specification excerpts serve as effective skills for fixing telecom bugs? We address this through a controlled A/B experiment on specification injection.
 
@@ -167,9 +167,7 @@ free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular archit
 
 Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as SCTP connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
 
-Strategy~A (Direct Call) applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's recovery mechanism (\texttt{defer/recover} in Go, signal handlers in C) to detect panics. This strategy is used for 68 of 210 instances.
-
-Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. Strategy~B is used for 142 of 210 instances.
+Strategy~A (Direct Call) applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's recovery mechanism (\texttt{defer/recover} in Go, signal handlers in C) to detect panics. Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
 
 \subsection{Dataset Construction Pipeline}
 
@@ -285,7 +283,7 @@ We categorize failures into four stages (Table~\ref{tab:failure}). Each instance
 
 \begin{table}[t]
 \centering
-\caption{Failure mode breakdown across 210 instances (multi-turn, $K{=}5$). Each cell shows the number of instances whose earliest failure occurs at that stage.}
+\caption{Failure mode breakdown (multi-turn, $K{=}5$). Each cell shows the number of instances whose earliest failure occurs at that stage.}
 \label{tab:failure}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -347,7 +345,7 @@ These results demonstrate that specification utility is conditional on bug type 
 \section{Conclusion}
 % ============================================================
 
-We have introduced SWE-Bench~5G, the first benchmark for evaluating AI coding agents on telecom network engineering tasks. The benchmark provides 210 validated instances spanning 9 Network Functions from three open-source 5G core projects, with a dual test strategy, Docker-based reproducibility, and an automated construction pipeline. Our evaluation across four LLMs reveals that agentic iteration is the primary bottleneck, with multi-turn feedback improving resolve rates from 0\% to 10 to 30\%. The specification-as-skill experiment demonstrates that 3GPP protocol excerpts provide targeted improvement on specification-dependent bugs while offering no benefit for generic defensive checks.
+We have introduced SWE-Bench~5G, the first benchmark for evaluating AI coding agents on telecom network engineering tasks. The benchmark draws from three open-source 5G core projects, provides a dual test strategy for specification-driven code, Docker-based reproducibility, and an automated construction pipeline. Our evaluation across four LLMs reveals that agentic iteration is the primary bottleneck, with multi-turn feedback improving resolve rates from 0\% to 10 to 30\%. The specification-as-skill experiment demonstrates that 3GPP protocol excerpts provide targeted improvement on specification-dependent bugs while offering no benefit for generic defensive checks.
 
 Future work includes expanding the dataset with cross-NF coordination tasks, integrating full agentic tools with native file editing capabilities, and evaluating generalization to additional 5G implementations.
 
