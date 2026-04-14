@@ -95,44 +95,20 @@ Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Pha
 % Style: rounded rectangles, sans-serif font, no 3D, thin borders, blue arrows
 % ======== END DRAWING PROMPT ========
 
-\begin{figure}[t]
+% TikZ version commented out; using Gemini-generated PNG instead
+% \begin{figure}[t]
+% \centering
+% \begin{tikzpicture}[...]
+% ... (see git history for full TikZ source)
+% \end{tikzpicture}
+% \end{figure}
+
+\begin{figure*}[t]
 \centering
-\begin{tikzpicture}[
-    node distance=0.4cm and 0.3cm,
-    box/.style={draw, rounded corners=3pt, minimum height=0.7cm, minimum width=1.8cm, font=\scriptsize, align=center, fill=#1},
-    box/.default=blue!8,
-    arrow/.style={-{Stealth[length=2mm]}, thick, draw=blue!60},
-    dasharrow/.style={-{Stealth[length=2mm]}, thick, draw=gray!60, dashed},
-    label/.style={font=\scriptsize\bfseries, text=blue!70},
-    phase/.style={draw=blue!40, rounded corners=5pt, inner sep=6pt, fill=blue!3},
-    phase2/.style={draw=green!50!black, rounded corners=5pt, inner sep=6pt, fill=green!3},
-]
-\node[box=orange!15] (issue) {Issue / Problem\\Statement};
-\node[box=yellow!15, right=0.6cm of issue] (agent) {AI Agent\\(LLM)};
-\node[box=blue!10, above=0.3cm of agent] (spec) {3GPP Spec\\(Optional)};
-\node[box=blue!10, below=0.3cm of agent] (docker1) {Docker Container\\(NF Source)};
-\node[box=orange!15, right=0.6cm of agent] (patch) {Proposed\\Patch};
-\node[box=green!10, right=0.6cm of patch] (docker2) {Fresh Docker\\(Clean Env)};
-\node[box=green!10, below=0.3cm of docker2] (test) {Run Tests\\(P2P \& F2P)};
-\node[box=green!15, below=0.3cm of test] (result) {Verified\\Result};
-\draw[arrow] (issue) -- (agent);
-\draw[dasharrow] (spec) -- (agent);
-\draw[arrow] (agent) -- (docker1);
-\draw[arrow] (docker1) -- (agent);
-\draw[arrow] (agent) -- (patch);
-\draw[arrow] (patch) -- (docker2);
-\draw[arrow] (docker2) -- (test);
-\draw[arrow] (test) -- (result);
-\node[label, above=0.15cm of issue, xshift=1.2cm] {Phase 1: Agent Coding};
-\node[label, above=0.15cm of docker2, xshift=0.0cm, text=green!50!black] {Phase 2: Evaluation};
-\begin{scope}[on background layer]
-\node[phase, fit=(issue)(agent)(spec)(docker1)(patch)] {};
-\node[phase2, fit=(docker2)(test)(result)] {};
-\end{scope}
-\end{tikzpicture}
+\includegraphics[width=\textwidth]{framework.png}
 \caption{SWE-Bench 5G evaluation pipeline. In Phase~1 the agent reads the issue and NF source code, optionally augmented with a 3GPP specification excerpt, and produces a patch. In Phase~2 the patch is applied in a fresh container and validated against pass-to-pass (P2P) and fail-to-pass (F2P) tests.}
 \label{fig:overview}
-\end{figure}
+\end{figure*}
 
 \subsection{Task Formulation}
 
