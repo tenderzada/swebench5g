@@ -169,7 +169,7 @@ Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Pha
 
 \subsection{Task Formulation}
 
-Each task instance is a tuple $\mathcal{T} = (I, O, E)$ where $I$ is the input comprising a problem statement with optional 3GPP references and the NF source at the buggy commit, $O$ is the expected output in the form of a unified diff patch, and $E$ is the evaluation consisting of \texttt{PASS\_TO\_PASS} and \texttt{FAIL\_TO\_PASS} test suites. An instance is resolved if and only if all fail-to-pass (F2P) tests pass and all pass-to-pass (P2P) tests remain passing after applying the patch.
+Each task instance is a tuple $\mathcal{T} = (I, O, E)$ where $I$ is the input comprising a problem statement with optional 3GPP references and the NF source at the buggy commit, $O$ is the expected output in the form of a unified diff patch, and $E$ is the evaluation consisting of \texttt{PASS\_TO\_PASS} and \texttt{FAIL\_TO\_PASS} test suites. An instance is resolved if and only if all fail-to-pass (F2P) tests pass and all pass-to-pass (P2P) tests remain passing after applying the patch. The complete schema of each task instance is provided in Appendix~A.
 
 \subsection{Source Projects}
 
