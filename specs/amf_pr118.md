@@ -25,6 +25,6 @@ A security-protected NAS message has the following structure (minimum 7 octets):
 
 The AMF SHALL verify the integrity of NAS messages. Before stripping the security header (7 bytes), the AMF MUST verify that the NAS PDU contains at least 7 octets. A NAS PDU shorter than 7 octets cannot be a valid security-protected message.
 
-## Key Implication for This Bug
+## Key Implication
 
-The code performs `payload = payload[7:]` without checking `len(payload) >= 7`. A malformed NAS PDU with fewer than 7 bytes causes a slice bounds out of range panic. The specification implicitly requires length validation since the security header is a fixed 7-byte structure.
+A security-protected NAS message has a fixed 7-byte header structure. Any NAS PDU shorter than this minimum cannot be a valid security-protected message. The specification defines the header as mandatory and fixed-length, requiring implementations to validate the PDU length against this minimum before attempting to parse or strip the header.

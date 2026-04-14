@@ -25,6 +25,6 @@ The NSSF SHALL:
 3. If `expiry` is absent (null/nil), treat the subscription as non-expiring
 4. Return 201 Created with the subscription resource
 
-## Key Implication for This Bug
+## Key Implication
 
-The code calls `subscription.SubscriptionData.Expiry.IsZero()` without checking if `Expiry` is nil. Since `Expiry` is a `*time.Time` pointer and the field is optional per TS 29.531, it can be nil when not provided in the request. The fix adds `Expiry != nil &&` before calling `.IsZero()`.
+The expiry field is explicitly optional in the subscription request. When a client omits this field, the NSSF must treat the subscription as non-expiring or apply a server-defined default. Implementations must account for the absence of optional fields before performing any operations on them.

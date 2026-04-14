@@ -20,6 +20,6 @@ The UDM SHALL:
 2. If the identifier is out of range (< 1 or > number of profiles): return error
 3. If valid: use the corresponding key profile for de-concealment
 
-## Key Implication for This Bug
+## Key Implication
 
-The code checks `if keyIndex > len(suciProfiles)` but NOT `keyIndex < 1`. When `keyIndex` is 0 (reserved value per spec), `suciProfiles[keyIndex-1]` accesses index -1, causing a panic. The fix adds `keyIndex < 1 ||` to the bounds check, enforcing the specification's requirement that the identifier starts at 1.
+The Home Network Public Key Identifier has a valid range starting at 1. Value 0 is reserved per the specification and must not be accepted as a valid identifier. Implementations must validate the full range of the identifier, including the lower bound, before using it to index into configured key profiles.

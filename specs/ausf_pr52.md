@@ -19,6 +19,6 @@ If no prior authentication context exists (no SUCI-SUPI mapping), the AUSF SHALL
 
 The AUSF SHALL validate that required context exists before performing operations. Missing UE context SHALL result in a 404 response, not a server crash.
 
-## Key Implication for This Bug
+## Key Implication
 
-The code calls `GetSupiFromSuciSupiMap()` without first checking `CheckIfSuciSupiPairExists()`. When no mapping exists, the function returns nil, and the subsequent type assertion `nil.(string)` panics. The fix adds existence checks before accessing the mapping and UE context.
+A resynchronization request is only valid when a prior authentication context exists for the UE. If no SUCI-SUPI mapping has been established, the AUSF has no context to work with and must return a 404 error. Implementations must verify that the required authentication context exists before attempting to retrieve or operate on it.

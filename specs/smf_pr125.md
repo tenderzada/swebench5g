@@ -21,6 +21,6 @@ The caller (SMF) SHALL handle the error gracefully. When the transfer fails, the
 
 When releasing PDU session resources, if the notification to the AMF fails, the SMF SHALL proceed with local resource cleanup. It SHALL NOT crash.
 
-## Key Implication for This Bug
+## Key Implication
 
-When `N1N2MessageTransfer` returns an error, `statusCode` is nil. The code logs the error but does NOT return — it falls through to `switch *statusCode` which dereferences the nil pointer. The fix adds `return false, true` inside the error handling block, conforming to the specification's requirement that the SMF handle transfer failures gracefully.
+When the N1N2 message transfer fails, the SMF must handle the error gracefully and must not proceed with processing that depends on a successful transfer result. The specification requires that failed transfers lead to appropriate recovery actions, and subsequent logic that assumes a successful response must not be reached in the error path.

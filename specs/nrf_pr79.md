@@ -24,6 +24,6 @@ For malformed requests, the NRF SHALL return:
 - HTTP 400 Bad Request
 - Error response body: `{"error": "invalid_request"}`
 
-## Key Implication for This Bug
+## Key Implication
 
-The code uses reflection to map form keys to struct fields via YAML tags. When an unknown key is submitted, `FieldByName("")` returns a zero `reflect.Value`, and calling `.Set()` on it panics. The fix adds `if name == ""` check to return 400 for unknown keys, conforming to RFC 6749.
+The access token endpoint accepts a defined set of form parameters. Per RFC 6749, unknown or unsupported parameters in the request should be ignored or rejected with an appropriate error response. The NRF must handle unexpected input fields gracefully rather than making assumptions about the structure of incoming requests.

@@ -20,6 +20,6 @@ Per 3GPP TS 29.500 (common API framework), when a resource is not found, the NF 
 - Include a ProblemDetails structure in the response body
 - **Stop processing** the request (return immediately after sending the error response)
 
-## Key Implication for This Bug
+## Key Implication
 
-The code sends a 404 error response when `polAssoId` is not found, but does NOT return. Execution falls through to `delete(ue.AMPolicyData, polAssoId)` which causes a nil pointer dereference because `ue` is nil. The fix adds `return` after the error response, conforming to the specification's requirement to stop processing after an error.
+When a requested resource is not found, the NF must return the appropriate error response and immediately stop processing the request. The 3GPP common API framework in TS 29.500 requires that error handling be terminal: once an error response is sent, no further operations on the requested resource should be attempted.

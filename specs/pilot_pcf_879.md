@@ -27,6 +27,6 @@ If `AfRoutingRequirement` is not provided in the request, the PCF SHALL NOT atte
 
 The PCF and SMF negotiate traffic steering support via `suppFeat`. When both support it (`suppFeat` bit 1 set on both sides), the PCF MAY provision traffic control data. The provisioning is conditional on the AF providing routing requirements — it is not mandatory.
 
-## Key Implication for This Bug
+## Key Implication
 
-When `suppFeat=1` is negotiated but `AfRoutReq` is absent from `medComponents`, the PCF must handle this gracefully. The specification explicitly makes `AfRoutReq` optional. The buggy code assumes `AfRoutReq` is always present when traffic routing is enabled, which violates the specification.
+When traffic routing support is negotiated via suppFeat bit 1, the AfRoutingRequirement field remains optional per the specification. Its absence does not constitute an error. The PCF must handle requests where suppFeat indicates traffic routing support but no AfRoutingRequirement is provided in the media components.

@@ -15,6 +15,6 @@ Upon receiving a NAS PDU from the AN (via NGAP InitialUEMessage), the AMF SHALL:
 
 If the NAS PDU is empty or malformed, the AMF SHALL discard the message and MAY log an error. It SHALL NOT crash or become unavailable.
 
-## Key Implication for This Bug
+## Key Implication
 
-The code checks `if payload == nil` but does not check `len(payload) == 0`. In Go, an empty byte slice `[]byte{}` is not nil. A zero-length payload passes the nil check but fails when accessing `payload[0]` for the EPD. The fix should use `len(payload) == 0` which covers both nil and empty cases.
+Every valid NAS message must contain at least one octet for the Extended Protocol Discriminator. A zero-length NAS PDU is explicitly invalid per the specification. Implementations must ensure that empty payloads are rejected before any field access, regardless of how emptiness is represented at the language level.
