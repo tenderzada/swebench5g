@@ -9,7 +9,7 @@
 \pdfoptionpdfminorversion = 7
 \usepackage{graphicx}
 \usepackage{textcomp}
-\usepackage{xcolor}
+\usepackage[table]{xcolor}
 % algorithm
 \usepackage[ruled,linesnumbered]{algorithm2e}
 % url
@@ -18,6 +18,7 @@
 % table
 \usepackage{multirow}
 \usepackage{booktabs}
+\usepackage{array}
 % textbf
 \usepackage{bm}
 \usepackage[normalem]{ulem}
@@ -29,6 +30,12 @@
 \usepackage{subfigure}
 
 \usepackage{microtype}
+
+\definecolor{SBBlue}{RGB}{36,96,158}
+\definecolor{SBBlueBg}{RGB}{239,246,253}
+\definecolor{SBBlueBorder}{RGB}{120,162,210}
+\definecolor{SBGrayBg}{RGB}{249,249,248}
+\definecolor{SBGrayBorder}{RGB}{214,214,214}
 
 %set default box at end of proofs as white box
 \ifCLASSOPTIONcompsoc
@@ -75,25 +82,14 @@ AI coding agents have achieved remarkable progress on general-purpose software b
 
 Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, specification-driven vertical domains, where code correctness is defined by external normative documents rather than unit tests alone, remain entirely unexamined.
 
-The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). As Table~\ref{tab:unique} summarizes, 5G tasks differ from general SWE-Bench tasks across several dimensions, making 5G software an ideal testbed for probing the capability boundaries of current coding agents.
+The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). As Fig.~\ref{fig:unique} summarizes, 5G tasks differ from general SWE-Bench tasks across several dimensions, making 5G software an ideal testbed for probing the capability boundaries of current coding agents.
 
-\begin{table}[h]
+\begin{figure}[!t]
 \centering
-\caption{What makes 5G tasks unique compared to general SWE-Bench.}
-\label{tab:unique}
-\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{} p{2.0cm}  p{2.6cm}  p{2.8cm} @{}}
-\toprule
-\textsc{Dimension} & \textsc{General SWE-Bench} & \textsc{SWE-Bench 5G} \\
-\midrule
-Domain knowledge & General programming & 3GPP protocol specifications \\
-Architecture & Single application & Distributed microservices \\
-Complexity & Code logic & Protocol state machines and signaling \\
-Specification & Issue description & Issue with 3GPP TS references \\
-\bottomrule
-\end{tabular}
-\end{table}
+\refstepcounter{figure}
+\label{fig:unique}
+\includegraphics[width=\columnwidth]{table1_infographic.png}
+\end{figure}
 
 To this end, we propose SWE-Bench~5G, the first benchmark designed to investigate a concrete question: can AI coding agents resolve real-world bugs in 5G core network software? The benchmark draws task instances from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, spanning 7~NFs. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests, and a dual test strategy is introduced to handle the complex runtime dependencies unique to telecom code. In addition, since many original issues cite specific 3GPP specification clauses, we leverage these references to construct concise specification context documents, enabling a controlled evaluation of whether providing domain knowledge improves agent performance.
 
@@ -398,5 +394,40 @@ Future work includes expanding the dataset with cross-NF coordination tasks, int
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
+
+\appendices
+
+\section{Dataset Schema}
+
+Table~\ref{tab:schema} describes the fields in each task instance of the SWE-Bench~5G dataset, available at \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.
+
+\begin{table}[h]
+\centering
+\caption{SWE-Bench 5G dataset schema.}
+\label{tab:schema}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{@{} l l p{4.2cm} @{}}
+\toprule
+Field & Type & Description \\
+\midrule
+\texttt{instance\_id} & string & Unique task identifier \\
+\texttt{task} & string & Task type: SingleNF, CrossNF, Protocol, DataPlane \\
+\texttt{nf\_type} & string & Network Function: AMF, SMF, PCF, etc. \\
+\texttt{repo} & string & Source repository \\
+\texttt{image\_url} & string & Docker image for reproducible environment \\
+\texttt{patch} & string & Ground-truth fix as unified diff \\
+\texttt{parent\_commit} & string & Buggy commit hash \\
+\texttt{problem\_statement} & string & Bug description with 3GPP references \\
+\texttt{FAIL\_TO\_PASS} & string & Test names that should fail then pass \\
+\texttt{PASS\_TO\_PASS} & string & Test names that should always pass \\
+\texttt{spec\_reference} & string & Related 3GPP specification sections \\
+\texttt{difficulty} & string & Easy, medium, or hard \\
+\texttt{affected\_function} & string & Function containing the bug \\
+\texttt{lines\_changed} & int & Number of lines in the fix \\
+\texttt{files\_changed} & int & Number of files modified \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \end{document}
