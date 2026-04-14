@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-AI coding agents have achieved remarkable progress on general-purpose software benchmarks, yet their ability to handle specification-driven vertical domains remains unexplored. We propose SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.}, the first benchmark designed to investigate whether AI coding agents can resolve real-world bugs in 5G core network software. The benchmark collects task instances from three open-source 5G projects, packages each as a self-contained Docker environment with automated fail-to-pass tests, and provides a dual test strategy tailored to the complex runtime dependencies of telecom code. In addition, each instance is paired with a curated 3GPP specification excerpt, enabling controlled evaluation of whether domain knowledge improves agent performance. Experiments on four LLMs reveal that all models diagnose bugs at rates exceeding 91\%, yet resolve rates remain between 10\% and 30\%, indicating that iterative code editing capability, not domain understanding, is the primary bottleneck. The specification injection experiment further shows that 3GPP excerpts improve resolve rates on specification-dependent bugs but provide no benefit on generic defensive checks.
+AI coding agents have achieved remarkable progress on general-purpose software benchmarks, yet their ability to handle specification-driven vertical domains remains unexplored. We propose SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.}, the first benchmark designed to investigate whether AI coding agents can resolve real-world bugs in 5G core network software. The benchmark collects task instances from three open-source 5G projects, packages each as a self-contained Docker environment with automated fail-to-pass tests, and provides a dual test strategy tailored to the complex runtime dependencies of telecom code. In addition, for instances whose original issues reference 3GPP specification clauses, we construct concise specification context documents, enabling controlled evaluation of whether domain knowledge improves agent performance. Experiments on four LLMs reveal that all models diagnose bugs at rates exceeding 91\%, yet resolve rates remain between 10\% and 30\%, indicating that iterative code editing capability, not domain understanding, is the primary bottleneck. The specification injection experiment further shows that 3GPP excerpts improve resolve rates on specification-dependent bugs but provide no benefit on generic defensive checks.
 \end{abstract}
 
 % ============================================================
@@ -74,6 +74,8 @@ BeyondSWE~\cite{shi2025beyondswe} broadened the resolution scope further to incl
 A complementary research direction investigates whether external knowledge can improve agent performance. SWE-Skills-Bench~\cite{han2025sweskills} formalized this question by defining 49 programming skills and evaluating their injection into coding agents. Their central finding is that 80\% of skills provide zero improvement to resolve rates, with utility depending on domain match, abstraction level, and context compatibility. Skills that are too abstract or too specific both fail to help; only skills that closely match the task domain and provide actionable guidance show positive effects.
 
 This finding motivates our investigation of 3GPP specifications as skill documents. Unlike generic coding guidelines, 3GPP Technical Specifications define the authoritative ground truth for correct 5GC behavior and may therefore represent a category of high-utility, domain-matched skill.
+
+\subsection{Gap in Telecommunications}
 
 Despite the growing diversity of benchmarks, all existing work targets general-purpose software. No benchmark evaluates agents on protocol-specified, distributed telecommunications systems. The 5G domain introduces challenges that are absent from Python-centric benchmarks: specification-driven correctness criteria, distributed NF coordination, and domain knowledge underrepresented in LLM training data relative to web development or data science.
 
@@ -141,7 +143,7 @@ free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular archit
 
 Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as SCTP connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
 
-Strategy~A, Direct Call, applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's native recovery mechanism, such as \texttt{defer/recover} in Go and signal handlers in C, to detect panics. Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
+Strategy~A, Direct Call, applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's native recovery mechanism, such as \texttt{defer/recover} in Go and signal handlers in C, to detect panics. Strategy~B, Diff-Based Intent, inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
 
 \subsection{Dataset Construction Pipeline}
 
@@ -249,7 +251,7 @@ Fig.~\ref{fig:bar_results} shows the evaluation results across all four models i
 \label{fig:bar_results}
 \end{figure}
 
-For Qwen3.5-Flash, the multi-turn loop improves patch application from 28.6\% in single-turn mode to 57.1\% and enables successful resolution of 10.0\% of instances. The feedback mechanism works as intended: when the initial patch causes a compilation error, the error message is fed back, prompting a corrected version in subsequent turns. This result indicates that agentic iteration, not domain knowledge, constitutes the primary bottleneck for telecom software engineering.
+For Qwen3.5-Flash, the multi-turn loop improves patch application from 34.3\% in single-turn mode to 57.1\% and enables successful resolution of 10.0\% of instances. The feedback mechanism works as intended: when the initial patch causes a compilation error, the error message is fed back, prompting a corrected version in subsequent turns. This result indicates that agentic iteration, not domain knowledge, constitutes the primary bottleneck for telecom software engineering.
 
 The 30\% resolve rate of Claude Sonnet~4 on SWE-Bench~5G is notably lower than the rates reported for similar models on general-purpose benchmarks. Contributing factors include the stricter type system of Go and C compared to Python, deeply nested NF function signatures, and the exact-match requirement of our SEARCH/REPLACE patch mechanism.
 
@@ -266,16 +268,16 @@ We categorize failures into four stages (Table~\ref{tab:failure}). Each instance
 Failure Stage & Qwen & Kimi & Claude & GPT \\
 \midrule
 Bug not diagnosed     & 15 & 18 &  8 & 12 \\
-Patch format error    & 52 & 56 & 15 & 21 \\
-Compile failure       & 18 & 15 & 22 & 19 \\
-Incomplete fix        & 104 & 100 & 102 & 116 \\
+Patch format error    & 75 & 84 & 35 & 57 \\
+Compile failure       & 20 & 15 & 24 & 22 \\
+Incomplete fix        & 79 & 72 & 80 & 77 \\
 \midrule
 Resolved              & 21 & 21 & 63 & 42 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The dominant failure mode across all models is incomplete fix, accounting for 100 to 116 instances per model, where the agent addresses part of the bug but misses additional dereference sites or edge cases. Patch format error is the second most common for Qwen and Kimi, at 52 and 56 instances respectively, where the model generates a correct fix idea but produces a SEARCH block that does not exactly match the source whitespace or formatting. Claude and GPT show substantially fewer format errors, at 15 and 21 respectively, suggesting stronger adherence to structured output formats. This distribution indicates that improving patch application robustness through fuzzy matching could disproportionately benefit weaker models without requiring improvements to the underlying LLM.
+The dominant failure mode across all models is incomplete fix, accounting for 72 to 80 instances per model, where the agent addresses part of the bug but misses additional dereference sites or edge cases. Patch format error is the most prominent bottleneck for Qwen and Kimi, at 75 and 84 instances respectively, where the model generates a correct fix idea but produces a SEARCH block that does not exactly match the source whitespace or formatting. Claude and GPT show substantially fewer format errors, at 35 and 57 respectively, suggesting stronger adherence to structured output formats. This distribution indicates that improving patch application robustness through fuzzy matching could disproportionately benefit weaker models without requiring improvements to the underlying LLM.
 
 \subsection{Specification-as-Skill Results}
 
