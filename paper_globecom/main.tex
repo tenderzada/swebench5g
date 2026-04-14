@@ -1,18 +1,51 @@
-\documentclass[conference]{IEEEtran}
-
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
+%\documentclass[conference]{IEEEtran}
+\documentclass[10pt,conference]{IEEEtran}
+% \documentclass[12pt,draftclsnofoot,onecolumn]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
 \usepackage{cite}
-\usepackage{amsmath,amssymb}
+\usepackage{amsmath,amssymb,amsfonts}
+%\usepackage{algorithmic}
+\pdfoptionpdfminorversion = 7
 \usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{url}
-\usepackage{hyperref}
+\usepackage{textcomp}
 \usepackage{xcolor}
+% algorithm
+\usepackage[ruled,linesnumbered]{algorithm2e}
+% url
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+% table
 \usepackage{multirow}
-\usepackage{subcaption}
-\usepackage{tikz}
-\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds}
+\usepackage{booktabs}
+% textbf
+\usepackage{bm}
+\usepackage[normalem]{ulem}
+% English theorem environment
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{lemma}{Lemma}
+% subplot
+\usepackage{subfigure}
+
+\usepackage{microtype}
+
+%set default box at end of proofs as white box
+\ifCLASSOPTIONcompsoc
+\def\IEEEQED{\IEEEQEDclosed}
+\else
+\def\IEEEQED{\IEEEQEDopen}
+\fi
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\newcommand{\red}[1]{{\color{red} #1}}
+\newcommand{\blue}[1]{{{\color{blue} #1}}}
+\newcommand{\old}[1]{{\color{green} [DELETED: #1]}}
+\newcommand{\st}[1]{{\color{green} \sout{#1}}}
+\IEEEoverridecommandlockouts\IEEEpubid{\makebox[\columnwidth]{ 978-1-6654-3540-6/22/\$31.00~    \copyright~2022 IEEE \hfill} \hspace{\columnsep}%\makebox[\columnwidth]{ }}
+\hspace{\columnsep}\makebox[\columnwidth]{ }}
 
 \begin{document}
 
