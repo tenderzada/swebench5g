@@ -7,60 +7,45 @@ Reference style: BeyondSWE/SearchSWE architecture diagram (two-phase, left-right
 ### Gemini Prompt
 
 ```
-Draw a two-phase evaluation pipeline diagram for a research paper titled "SWE-Bench 5G".
-The diagram should be clean, professional, and styled for an IEEE conference paper.
-Use a blue color scheme on a white background. No 3D effects, no drop shadows.
+Draw a two-phase evaluation pipeline diagram for an IEEE conference paper.
+Clean, professional, blue color scheme, white background. No 3D, no shadows.
 
-LAYOUT: Left-right, two phases separated visually.
+LAYOUT: Left-right, two phases.
 
-PHASE 1 (left side, light blue background #E8F0FE, label at top: "Phase 1: Agent Coding"):
+PHASE 1 (left, light blue background, label: "Phase 1: Agent Coding"):
 
-Top-left corner: a small scroll/document icon labeled "Prevent cheating blocklist" 
-with a dashed arrow pointing down toward the input.
-
-Left input: a dashed-border box "Issue / Problem Statement" in light tan.
-Below it or beside it: a dashed-border box "3GPP Spec Excerpt (Optional)" in light tan.
+Left inputs, two dashed-border boxes stacked vertically:
+  - "Issue / Problem Statement"
+  - "3GPP Spec Excerpt (Optional)"
 Both have arrows pointing right into the central element.
 
-Center: a large rounded box "SWE-Bench 5G Agent" in white with a bold border. 
-This is the main element of Phase 1.
+Center: a large rounded box "AI Coding Agent" with a bold border.
+This is the visually dominant element. A curved return arrow on top
+represents the multi-turn iterative feedback loop.
 
-Below the agent: a rounded box "Docker Container (Local Context)" containing 
-an icon of a whale (Docker logo) and text "NF Source Code". 
-The agent and the Docker container are connected with bidirectional arrows:
-  - Down arrow labeled "Exec Commands"
-  - Up arrow labeled "Exec Outputs"
+Below the agent: a rounded box with a Docker whale icon,
+labeled "Docker Container (NF Source Code)".
+Connected to the agent with bidirectional arrows.
 
-The agent also has bidirectional arrows going up to a region labeled 
-"Iterative Reasoning & Feedback" (shown as a curved return arrow or loop icon),
-representing the multi-turn feedback loop (up to K turns).
+Right output: arrow from the agent to a dashed-border box "Proposed Patch".
 
-Right output of the agent: arrow pointing right to a dashed-border box 
-"Proposed Patch" in light tan.
+PHASE 2 (right, light green background, label: "Phase 2: Evaluation"):
 
-PHASE 2 (right side, light green background #E8F5E9, label at top: "Phase 2: Rigorous Evaluation"):
-
-Arranged vertically, top to bottom, connected by downward arrows:
-1. "Fresh Docker Container (Clean Env)" with a Docker whale icon
+Vertical flow, top to bottom, connected by downward arrows:
+1. "Fresh Docker Container (Clean Env)" with Docker icon
 2. "Apply Patch"
-3. "Run Test Suite (P2P & F2P)"  
-4. "Verified Result" with a checkmark icon
+3. "Run Test Suite (P2P & F2P)"
+4. "Verified Result"
 
-An arrow connects "Proposed Patch" from Phase 1 to the top of Phase 2.
+Arrow from "Proposed Patch" connects Phase 1 to Phase 2.
 
 STYLE:
-- Rounded rectangles with thin borders (1pt)
-- Font: clean sans-serif (Helvetica or similar), 9-10pt
-- Arrows: solid blue (#1565C0) with filled arrowheads, 1.5pt width
-- Dashed elements use gray (#9E9E9E) dashed lines
-- Phase background colors are subtle washes, not solid fills
-- The central "SWE-Bench 5G Agent" box should be the visually dominant element
-- Overall dimensions: approximately 7 inches wide x 3 inches tall (IEEE double-column width)
-- The diagram should closely follow the layout of the SearchSWE architecture diagram 
-  from BeyondSWE (arxiv 2603.03194), but adapted for the 5G domain:
-  replace "Search Tool / Browser Tool" with "3GPP Spec Excerpt"
-  replace "SearchSWE (Agent)" with "SWE-Bench 5G Agent"
-  keep the Docker container and two-phase structure
+- Rounded rectangles, thin borders (1pt)
+- Sans-serif font, 9-10pt
+- Blue arrows (#1565C0) with arrowheads
+- Dashed gray (#9E9E9E) for optional elements
+- Subtle background washes for phases
+- Approximately 7 inches wide, 3 inches tall
 ```
 
 ## Fig. 2: Bar Chart (Already generated as fig_results.pdf)
