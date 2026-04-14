@@ -73,16 +73,16 @@ Z. Lv (lvzh67@chinaunicom.cn) is with China Unicom Group Co., Ltd.}
 \maketitle
 
 \begin{abstract}
-AI coding agents have achieved remarkable progress on general-purpose software benchmarks. However, their ability to handle 5G network engineering tasks remains unexplored. We propose SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.}, the first benchmark designed to investigate whether AI coding agents can resolve real-world bugs in 5G core network software. The benchmark collects task instances from three open-source 5G projects, packages each as a self-contained Docker environment with automated fail-to-pass tests, and provides a dual test strategy tailored to the complex runtime dependencies of telecom code. In addition, for instances whose original issues reference 3GPP specification clauses, we construct concise specification context documents, enabling controlled evaluation of whether domain knowledge improves agent performance. Experiments on four LLMs reveal that all models diagnose bugs at rates exceeding 91\%, yet resolve rates remain between 10\% and 30\%, suggesting that both iterative code editing capability and domain knowledge play important roles. The specification injection experiment further confirms the value of domain knowledge: 3GPP excerpts improve resolve rates on specification-dependent bugs, while generic defensive checks see no benefit, indicating that the effect of domain knowledge is conditional on bug type.
+AI coding agents have achieved remarkable progress on general-purpose software benchmarks. However, their ability to handle 5G network engineering tasks remains unexplored. We propose SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.}, the first benchmark designed to investigate whether AI coding agents can resolve real-world bugs in 5G core network software. The benchmark collects task instances from three open-source 5G projects, packages each as a self-contained Docker environment with automated fail-to-pass tests, and provides a dual test strategy tailored to the complex runtime dependencies of telecom code. In addition, for instances whose original issues reference 3GPP specification clauses, we construct concise specification context documents, enabling controlled evaluation of whether domain knowledge improves agent performance. Experiments on four LLMs reveal that all models diagnose bugs at rates exceeding 91\%, yet resolve rates remain between 10\% and 30\%, suggesting that both iterative code editing capability and domain knowledge play important roles. The specification injection experiment further confirms the value of domain knowledge: 3GPP excerpts improve resolve rates on specification-dependent bugs, while the gains on generic defensive checks remain limited, indicating that the effect of domain knowledge is conditional on bug type.
 \end{abstract}
 
 % ============================================================
 \section{Introduction}
 % ============================================================
 
-Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, specification-driven vertical domains, where code correctness is defined by external normative documents rather than unit tests alone, remain entirely unexamined.
+Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench, hou2024llmse, xia2023apr}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python~\cite{wang2024testing, silva2025finetuning}. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, 5G network engineering, where code correctness is governed by hundreds of normative protocol specifications, remains entirely unexamined.
 
-The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). As highlighted in the upper-left panel of Fig.~\ref{fig:unique}, 5G software engineering introduces domain challenges absent from general SWE-Bench settings, including 3GPP-driven correctness, distributed NF interactions, and protocol-state reasoning.
+The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP)~\cite{wang2023road6g, polese2024openran}, 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). As highlighted in the upper-left panel of Fig.~\ref{fig:unique}, 5G software engineering introduces domain challenges absent from general SWE-Bench settings, including 3GPP-driven correctness, distributed NF interactions, and protocol-state reasoning.
 
 \begin{figure}[!t]
 \centering
@@ -98,7 +98,7 @@ Our contributions are threefold:
 \begin{enumerate}
 \item A benchmark framework mapping real 5G bugs to the SWE-Bench task format, with a dual test strategy for specification-driven code and Docker-based reproducibility.
 \item An evaluation of four LLMs under single-turn and multi-turn agent paradigms, revealing that iterative code editing capability and domain knowledge both contribute to resolving telecom bugs.
-\item A controlled experiment on 3GPP specification injection, demonstrating that domain knowledge improves resolve rates on specification-dependent bugs but provides no benefit on generic defensive checks.
+\item A controlled experiment on 3GPP specification injection, demonstrating that domain knowledge yields notable gains on specification-dependent bugs while showing limited effect on generic defensive checks.
 \end{enumerate}
 
 % ============================================================
@@ -107,7 +107,7 @@ Our contributions are threefold:
 
 \subsection{From SWE-Bench to Domain-Specific Benchmarks}
 
-The evaluation of AI coding agents has progressed through several stages. SWE-Bench~\cite{jimenez2024swebench} pioneered this direction by drawing 2,294 task instances from 12 popular Python repositories on GitHub. Each instance pairs an issue description with a fail-to-pass test, enabling automated binary evaluation of whether an agent can produce a correct patch. Early frontier models achieved single-digit resolve rates on this benchmark, catalyzing a wave of agent architecture research.
+The evaluation of AI coding agents has progressed through several stages. SWE-Bench~\cite{jimenez2024swebench} pioneered this direction by drawing 2,294 task instances from 12 popular Python repositories on GitHub. Each instance pairs an issue description with a fail-to-pass test, enabling automated binary evaluation of whether an agent can produce a correct patch. Early frontier models achieved single-digit resolve rates on this benchmark, catalyzing a wave of agent architecture research~\cite{wang2024pitfalls, fakhoury2024testdriven}.
 
 Subsequent refinements improved evaluation quality. SWE-Bench Lite selected a 300-instance subset for faster iteration, while SWE-Bench Verified introduced human validation to remove ambiguous instances. SWE-Bench Multimodal~\cite{yang2024swebenchmm} extended evaluation to visual software domains, requiring agents to process screenshots and UI specifications alongside code. These efforts remained within the Python ecosystem.
 
@@ -132,7 +132,7 @@ This finding motivates our investigation of 3GPP specifications as skill documen
 
 \subsection{Gap in Telecommunications}
 
-Despite the growing diversity of benchmarks, all existing work targets general-purpose software. No benchmark evaluates agents on protocol-specified, distributed telecommunications systems. The 5G domain introduces challenges that are absent from Python-centric benchmarks: specification-driven correctness criteria, distributed NF coordination, and domain knowledge underrepresented in LLM training data relative to web development or data science.
+Despite the growing diversity of benchmarks, all existing work targets general-purpose software. No benchmark evaluates agents on protocol-specified, distributed telecommunications systems. While recent work has examined open-source 5G core implementations~\cite{kousias2023open5g} and their security properties~\cite{giambartolomei2024penetration}, the 5G domain introduces challenges that are absent from Python-centric benchmarks: specification-driven correctness criteria, distributed NF coordination, and domain knowledge underrepresented in LLM training data relative to web development or data science.
 
 % ============================================================
 \section{Benchmark Design}
@@ -142,30 +142,6 @@ Despite the growing diversity of benchmarks, all existing work targets general-p
 
 Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Phase~1, an AI agent receives an issue description and the NF source code inside a Docker container, optionally augmented with a 3GPP specification excerpt, and produces a patch. In Phase~2, the patch is applied in a fresh container and validated against the test suite.
 
-% ======== DRAWING PROMPT FOR FIG 1 (Gemini API) ========
-% Draw a two-phase system architecture diagram for an AI coding agent evaluation pipeline,
-% styled for an IEEE academic paper (clean, professional, blue color scheme).
-%
-% Phase 1 (left, light blue background, label: Phase 1: Agent Coding):
-% - Box: Issue / Problem Statement (orange) -> arrow right ->
-% - Central box: AI Agent (LLM) (yellow)
-% - Above agent: dashed box 3GPP Spec (Optional) with gray dashed arrow down to agent
-% - Below agent: Docker Container (NF Source) with bidirectional arrows to agent
-% - Arrow right from agent to: Proposed Patch
-%
-% Phase 2 (right, light green background, label: Phase 2: Evaluation):
-% - Proposed Patch -> Fresh Docker Container -> Apply Patch -> Run Tests (P2P + F2P) -> Verified Result
-%
-% Style: rounded rectangles, sans-serif font, no 3D, thin borders, blue arrows
-% ======== END DRAWING PROMPT ========
-
-% TikZ version commented out; using Gemini-generated PNG instead
-% \begin{figure}[t]
-% \centering
-% \begin{tikzpicture}[...]
-% ... (see git history for full TikZ source)
-% \end{tikzpicture}
-% \end{figure}
 
 \subsection{Task Formulation}
 
@@ -204,7 +180,9 @@ Strategy~A, Direct Call, applies when the buggy function accepts simple argument
 \noindent\texttt{\small defer func()\{ if r:=recover(); r!=nil \{ t.Fatalf("BUG: \%v",r) \} \}()}
 \vspace{2pt}
 
-Strategy~B, Diff-Based Intent, inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern rather than testing runtime behavior. For example, a test may read the source file and check whether a nil guard such as \texttt{GNbId != nil} appears before a pointer dereference. This forces agents to modify the actual source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
+Strategy~B, Diff-Based Intent, inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern rather than testing runtime behavior. This forces agents to modify the actual source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
+
+As a concrete example, in \texttt{amf\_pr161} the AMF crashes when \texttt{handleUplinkRANConfigurationTransferMain} accesses \texttt{targetRanNodeID.GNbId.GNBValue} without nil-checking \texttt{GNbId}. The handler requires an active SCTP connection, NGAP context, and \texttt{AmfRan} state, making direct invocation impractical. Our Strategy~B test reads \texttt{handler.go} and verifies that the string \texttt{GNbId != nil} appears in the source. On the buggy version this pattern is absent and the test fails; after the agent adds the nil guard the test passes.
 
 \subsection{Validation Criteria}
 
@@ -212,7 +190,7 @@ Each task instance must satisfy a three-step validation before inclusion in the 
 
 \subsection{Dataset Construction Pipeline}
 
-Our automated pipeline operates in five stages: (1)~mine closed issues with linked merged pull requests from 33 repositories via the GitHub API, yielding 555 candidates; (2)~filter by quality criteria including clear descriptions and source-modifying PRs; (3)~identify parent (buggy) and fix commits; (4)~construct fail-to-pass tests using Strategy~A or~B; (5)~batch-build Docker images and run three-step validation (existing tests pass, F2P tests fail at parent, all tests pass after fix). Only instances passing all checks are included. Table~\ref{tab:dataset} summarizes the resulting dataset.
+Our automated pipeline operates in five stages: (1)~mine closed issues with linked merged pull requests from 33 repositories across the three source projects via the GitHub API, yielding 555 candidates; (2)~filter by quality criteria including clear descriptions and source-modifying PRs; (3)~identify parent (buggy) and fix commits; (4)~construct fail-to-pass tests using Strategy~A or~B; (5)~batch-build Docker images and run three-step validation (existing tests pass, F2P tests fail at parent, all tests pass after fix). Only instances passing all checks are included. Table~\ref{tab:dataset} summarizes the resulting dataset.
 
 \begin{table}[t]
 \centering
@@ -382,7 +360,7 @@ Three skill domains show positive utility deltas: policy authorization, policy c
 
 The average token overhead is 12\%, reflecting the concise nature of curated 3GPP excerpts compared to full specification documents.
 
-These results demonstrate that specification utility is conditional on bug type in the telecommunications domain. 3GPP specifications define the ground truth for correct protocol behavior, making them effective for protocol-semantic bugs, but they provide no value for bugs requiring only generic defensive programming.
+These results demonstrate that specification utility is conditional on bug type in the telecommunications domain. 3GPP specifications define the ground truth for correct protocol behavior, making them effective for protocol-semantic bugs, while their contribution to bugs requiring only generic defensive programming appears to be marginal.
 
 % ============================================================
 \section{Conclusion}
@@ -390,7 +368,7 @@ These results demonstrate that specification utility is conditional on bug type 
 
 We have introduced SWE-Bench~5G, the first benchmark for evaluating AI coding agents on telecom network engineering tasks. The benchmark draws from three open-source 5G core projects, provides a dual test strategy for specification-driven code, Docker-based reproducibility, and an automated construction pipeline. Our evaluation across four LLMs reveals that multi-turn feedback improves resolve rates from 0\% to 10 to 30\%, while the specification injection experiment demonstrates that domain knowledge provides additional gains on specification-dependent bugs, confirming that both agentic capability and domain knowledge are essential for telecom software engineering.
 
-Future work includes expanding the dataset with cross-NF coordination tasks, integrating full agentic tools with native file editing capabilities, and evaluating generalization to additional 5G implementations.
+Constructing this benchmark surfaced challenges specific to the telecom domain, notably the near-zero existing test coverage in open-source 5G projects and the difficulty of identifying correct parent commits when merge histories contain partial fixes. Future work includes expanding the dataset with cross-NF coordination tasks, integrating full agentic tools with native file editing capabilities, and evaluating generalization to additional 5G implementations.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
