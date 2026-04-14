@@ -48,6 +48,33 @@ STYLE:
 - Approximately 7 inches wide, 3 inches tall
 ```
 
+
+
+````
+A clean, professional two-phase evaluation pipeline diagram for an IEEE conference paper. Flat 2D vector style, white background, no shadows, no gradients, no 3D. Horizontal layout (~7in × 3in), split into two side-by-side panels with subtle background washes and a thin divider. Every box has a small monochrome line icon (#1565C0, ~16px) on its left side, vertically centered with the text.
+Left panel — "Phase 1: Agent Coding" (light blue wash #E8F1FB):
+On the far left, two vertically stacked input boxes with dashed gray borders (#9E9E9E):
+
+📄 "Issue / Problem Statement" — icon: a document with a small bug/exclamation mark
+📘 "3GPP Spec Excerpt (Optional)" — icon: an open book / spec sheet
+
+Solid blue arrows (#1565C0) flow right into a large, visually dominant rounded rectangle labeled "AI Coding Agent" (bold 1.5pt border, centered) — icon: a robot head or sparkle + code brackets </> symbol. A curved self-loop arrow sits above this box with a small 🔄 circular-arrow icon to indicate the multi-turn iterative feedback loop.
+Directly below the agent, a rounded box labeled "Docker Container (NF Source Code)" with the Docker whale icon on the left; connected to the agent by a bidirectional vertical arrow.
+A solid arrow exits the agent to the right into a dashed-border box "Proposed Patch" — icon: a diff/patch symbol (two overlapping horizontal lines with +/−) or a bandage.
+Right panel — "Phase 2: Evaluation" (light green wash #E9F5EC):
+A top-to-bottom vertical flow of four rounded rectangles connected by downward solid blue arrows:
+
+"Fresh Docker Container (Clean Env)" — Docker whale icon + a small ✨ sparkle to hint "clean/fresh"
+"Apply Patch" — icon: a wrench or a patch/bandage symbol
+"Run Test Suite (P2P & F2P)" — icon: a checklist with checkmarks, or a beaker/flask
+"Verified Result" — icon: a shield with a checkmark ✅, slightly green-tinted (#2E7D32) to signal success
+
+A single horizontal arrow connects "Proposed Patch" (end of Phase 1) to the top of Phase 2, crossing the panel divider.
+Style constraints: all boxes are rounded rectangles with 1pt thin borders; sans-serif font (Inter or Helvetica), 9–10pt body text, 11pt bold phase labels; all icons are line-style, monochrome #1565C0 (except the final success shield in #2E7D32), ~16px, consistent stroke weight (1.5px); arrows are solid #1565C0 with small filled arrowheads; dashed #9E9E9E reserved for optional or artifact boxes; generous whitespace, aligned grid, no decorative elements beyond the specified icons.
+````
+
+
+
 ## Fig. 2: Bar Chart (Already generated as fig_results.pdf)
 
 Already generated via matplotlib. If regeneration needed:
