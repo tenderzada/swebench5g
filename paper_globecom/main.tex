@@ -75,7 +75,25 @@ AI coding agents have achieved remarkable progress on general-purpose software b
 
 Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, specification-driven vertical domains, where code correctness is defined by external normative documents rather than unit tests alone, remain entirely unexamined.
 
-The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). Bugs in this domain differ fundamentally from those in typical open-source projects: correctness is governed by normative protocol text, distributed microservice architectures span multiple NFs communicating via HTTP/2 and the Packet Forwarding Control Protocol (PFCP), and protocol state machines impose complex multi-step procedures for registration, session management, and mobility. These characteristics make 5G software an ideal testbed for probing the capability boundaries of current coding agents.
+The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). As Table~\ref{tab:unique} summarizes, 5G tasks differ from general SWE-Bench tasks across several dimensions, making 5G software an ideal testbed for probing the capability boundaries of current coding agents.
+
+\begin{table}[h]
+\centering
+\caption{What makes 5G tasks unique compared to general SWE-Bench.}
+\label{tab:unique}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{} p{2.0cm}  p{2.6cm}  p{2.8cm} @{}}
+\toprule
+\textsc{Dimension} & \textsc{General SWE-Bench} & \textsc{SWE-Bench 5G} \\
+\midrule
+Domain knowledge & General programming & 3GPP protocol specifications \\
+Architecture & Single application & Distributed microservices \\
+Complexity & Code logic & Protocol state machines and signaling \\
+Specification & Issue description & Issue with 3GPP TS references \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 To this end, we propose SWE-Bench~5G, the first benchmark designed to investigate a concrete question: can AI coding agents resolve real-world bugs in 5G core network software? The benchmark draws task instances from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, spanning 7~NFs. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests, and a dual test strategy is introduced to handle the complex runtime dependencies unique to telecom code. In addition, since many original issues cite specific 3GPP specification clauses, we leverage these references to construct concise specification context documents, enabling a controlled evaluation of whether providing domain knowledge improves agent performance.
 
