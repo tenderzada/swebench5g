@@ -184,7 +184,17 @@ free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular archit
 
 Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as Stream Control Transmission Protocol (SCTP) connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
 
-Strategy~A, Direct Call, applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's native recovery mechanism, such as \texttt{defer/recover} in Go and signal handlers in C, to detect panics. Strategy~B, Diff-Based Intent, inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
+Strategy~A, Direct Call, applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use Go's \texttt{defer/recover} mechanism to detect panics. For example, a PCF policy authorization function can be invoked with a nil \texttt{routeReq} parameter, and the test catches the resulting panic:
+
+\vspace{2pt}
+\noindent\texttt{\small defer func()\{ if r:=recover(); r!=nil \{ t.Fatalf("BUG: \%v",r) \} \}()}
+\vspace{2pt}
+
+Strategy~B, Diff-Based Intent, inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern rather than testing runtime behavior. For example, a test may read the source file and check whether a nil guard such as \texttt{GNbId != nil} appears before a pointer dereference. This forces agents to modify the actual source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
+
+\subsection{Validation Criteria}
+
+Each task instance must satisfy a three-step validation before inclusion in the benchmark. First, all existing tests must pass at the parent commit, confirming that the Docker environment is correctly configured. Second, the F2P tests must fail at the parent commit, confirming that the bug is present and detectable. Third, after applying the ground-truth fix via the merged pull request, all tests must pass. Only instances that satisfy all three conditions are included. This process ensures that every instance represents a genuine, reproducible bug with a verified fix.
 
 \subsection{Dataset Construction Pipeline}
 
