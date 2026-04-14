@@ -77,7 +77,7 @@ Large language models (LLMs) have enabled a new class of AI coding agents that a
 
 The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). Bugs in this domain differ fundamentally from those in typical open-source projects: correctness is governed by normative protocol text, distributed microservice architectures span multiple NFs communicating via HTTP/2 and the Packet Forwarding Control Protocol (PFCP), and protocol state machines impose complex multi-step procedures for registration, session management, and mobility. These characteristics make 5G software an ideal testbed for probing the capability boundaries of current coding agents.
 
-To this end, we propose SWE-Bench~5G, the first benchmark designed to investigate a concrete question: can AI coding agents resolve real-world bugs in 5G core network software? The benchmark draws task instances from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, spanning 9~NFs. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests, and a dual test strategy is introduced to handle the complex runtime dependencies unique to telecom code. In addition, since many original issues cite specific 3GPP specification clauses, we leverage these references to construct concise specification context documents, enabling a controlled evaluation of whether providing domain knowledge improves agent performance.
+To this end, we propose SWE-Bench~5G, the first benchmark designed to investigate a concrete question: can AI coding agents resolve real-world bugs in 5G core network software? The benchmark draws task instances from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, spanning 7~NFs. Each instance is packaged as a self-contained Docker environment with fail-to-pass tests, and a dual test strategy is introduced to handle the complex runtime dependencies unique to telecom code. In addition, since many original issues cite specific 3GPP specification clauses, we leverage these references to construct concise specification context documents, enabling a controlled evaluation of whether providing domain knowledge improves agent performance.
 
 Our contributions are threefold:
 
@@ -178,7 +178,7 @@ Total                     &      & 33 & 555 & 210 \\
 \end{tabular}
 \end{table}
 
-free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular architecture of one repository per NF. Open5GS is a C implementation widely deployed in research testbeds, with a monolithic repository containing all NFs. Magma, originally developed by Meta, provides a hybrid Go/Python 5G core oriented toward access gateway functionality. The three projects collectively provide language diversity across Go, C, and Python, as well as architectural diversity ranging from modular to monolithic designs.
+free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular architecture of one repository per NF. From free5GC alone, validated instances cover seven NFs: Access and Mobility Management Function (AMF), Policy Control Function (PCF), Session Management Function (SMF), Unified Data Management (UDM), NF Repository Function (NRF), Network Slice Selection Function (NSSF), and Authentication Server Function (AUSF). Open5GS is a C implementation widely deployed in research testbeds, with a monolithic repository containing all NFs. Magma, originally developed by Meta, provides a hybrid Go/Python 5G core oriented toward access gateway functionality. The three projects collectively provide language diversity across Go, C, and Python, as well as architectural diversity ranging from modular to monolithic designs.
 
 \subsection{Dual Test Strategy}
 
@@ -201,8 +201,7 @@ Attribute & Value \\
 Validated instances  & 210 \\
 Source projects       & free5GC, Open5GS, Magma \\
 Languages            & Go, C, Python \\
-NFs covered          & 9 (AMF, SMF, PCF, UDM, UDR, NRF, \\
-                     & \quad NSSF, AUSF, N3IWF) \\
+NFs covered          & 7 \\
 Bug types            & nil/null pointer (89), crash (42), \\
                      & \quad missing validation (35), logic error (27), \\
                      & \quad concurrency (17) \\
