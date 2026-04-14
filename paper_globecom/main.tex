@@ -202,9 +202,11 @@ GPT-4.1          & OpenAI    & OpenRouter & Multi \\
 
 \subsection{Specification-as-Skill Protocol}
 
-We test whether injecting 3GPP specification excerpts improves resolve rates. For each instance, a curated excerpt from the relevant Technical Specification is prepared, containing the applicable clause, field optionality rules, and a paragraph linking the specification to the bug. Excerpts average 350 tokens.
+In the context of coding agent evaluation, a skill is a structured reference document that encodes domain-specific procedural knowledge, conventions, or specifications, injected into the agent's context at inference time without any model modification~\cite{han2025sweskills}. We adapt this concept to the telecommunications domain by constructing 3GPP specification excerpts as skill documents.
 
-We define Condition~A ($-$spec) with only the problem statement and source code, and Condition~B ($+$spec) with the 3GPP excerpt additionally appended. Both conditions use identical Docker images, test suites, and evaluation criteria. We evaluate the A/B effect on a subset of 50 instances covering both generic and specification-dependent bug types.
+For each task instance, we curate a skill document from the relevant 3GPP Technical Specification through a three-step process. First, we identify the TS clause governing the buggy behavior based on the issue description and PR discussion. Second, we extract the normative text defining the correct semantics, including field optionality constraints, valid value ranges, and required state transitions. Third, we append a key implication paragraph that links the specification clause to the specific bug without revealing the fix. Each resulting excerpt is a self-contained Markdown document averaging 350 tokens. For example, the skill for a PCF policy authorization bug contains the TS~29.514 clause stating that the \texttt{AfRoutReq} field is optional when \texttt{suppFeat} bit~1 is set, directly informing the agent that a nil guard is required.
+
+The evaluation follows a paired A/B design. Condition~A provides only the problem statement and source code, while Condition~B additionally appends the 3GPP excerpt to the problem statement. Both conditions use identical Docker images, test suites, and evaluation criteria. We evaluate this on a subset of 50 instances covering both generic bugs, where the fix requires only standard defensive programming, and specification-dependent bugs, where the correct behavior is defined by a 3GPP clause.
 
 % ============================================================
 \section{Results and Analysis}
