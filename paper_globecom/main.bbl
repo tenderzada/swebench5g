@@ -26,6 +26,22 @@ C.~E. Jimenez, J.~Yang, A.~Wettig, S.~Yao, K.~Pei, O.~Press, and K.~Narasimhan,
   ``{SWE}-bench: Can language models resolve real-world {GitHub} issues?'' in
   \emph{Proc. ICLR}, 2024.
 
+\bibitem{free5gc}
+{free5GC Team}, ``free5{GC}: Open source 5{G} core network,''
+  \url{https://github.com/free5gc/free5gc}, 2024.
+
+\bibitem{open5gs}
+{Open5GS Team}, ``{Open5GS}: Open source implementation of 5{G} core and
+  {EPC},'' \url{https://github.com/open5gs/open5gs}, 2024.
+
+\bibitem{magma}
+{Linux Foundation}, ``{Magma}: Platform for building access networks and
+  modular network services,'' \url{https://github.com/magma/magma}, 2024.
+
+\bibitem{yao2025swebenchmobile}
+Z.~Yao \emph{et~al.}, ``{SWE}-bench mobile: An evaluation benchmark for mobile
+  app engineering,'' \emph{arXiv preprint arXiv:2602.09540}, 2025.
+
 \bibitem{shi2025beyondswe}
 Z.~Shi \emph{et~al.}, ``{BeyondSWE}: A comprehensive benchmark for evaluating
   code agents beyond narrow bug fixing,'' \emph{arXiv preprint
@@ -35,13 +51,5 @@ Z.~Shi \emph{et~al.}, ``{BeyondSWE}: A comprehensive benchmark for evaluating
 T.~Han, Y.~Zhang, W.~Song, C.~Fang, Z.~Chen, Y.~Sun, and L.~Hu,
   ``{SWE}-skills-bench: Do agent skills actually help in real-world software
   engineering?'' \emph{arXiv preprint arXiv:2603.15401}, 2025.
-
-\bibitem{free5gc}
-{free5GC Team}, ``free5{GC}: Open source 5{G} core network,''
-  \url{https://github.com/free5gc/free5gc}, 2024.
-
-\bibitem{yao2025swebenchmobile}
-Z.~Yao \emph{et~al.}, ``{SWE}-bench mobile: An evaluation benchmark for mobile
-  app engineering,'' \emph{arXiv preprint arXiv:2602.09540}, 2025.
 
 \end{thebibliography}
