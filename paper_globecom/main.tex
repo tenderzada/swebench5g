@@ -16,7 +16,7 @@
 
 \begin{document}
 
-\title{SWE-Bench 5G: A Benchmark for Evaluating AI Coding Agents on 5G Core Network Engineering Tasks}
+\title{SWE-Bench 5G: Benchmarking AI Coding Agents\\on Telecom Network Engineering Tasks}
 
 \author{
 \IEEEauthorblockN{Anonymous Author(s)}
@@ -25,7 +25,7 @@
 \maketitle
 
 \begin{abstract}
-AI coding agents have demonstrated strong performance on general-purpose software benchmarks such as SWE-Bench and BeyondSWE, yet no existing benchmark evaluates their capabilities on telecommunications software. We introduce SWE-Bench~5G, the first benchmark for evaluating AI coding agents on real bug-fixing tasks drawn from the free5GC open-source 5G core network. The benchmark comprises 210 validated task instances spanning 9 Network Functions (NFs), each packaged as a self-contained Docker environment with automated tests. We evaluate four LLMs under two agent paradigms, single-turn and multi-turn with iterative feedback, and find that agentic capabilities, rather than model intelligence alone, constitute the primary bottleneck: all models correctly diagnose bugs at rates exceeding 80\%, but only multi-turn agents successfully apply patches. We further investigate specification-as-skill injection by adapting the methodology of SWE-Skills-Bench to the 3GPP domain and find that protocol specification excerpts yield a 10\% overall resolve rate improvement, concentrated on specification-dependent bugs while providing no benefit for generic null-check bugs. The benchmark, evaluation harness, and dataset are publicly available at \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.
+AI coding agents have demonstrated strong performance on general-purpose software benchmarks such as SWE-Bench and BeyondSWE, yet no existing benchmark evaluates their capabilities on telecommunications software. We introduce SWE-Bench~5G\footnote{Dataset: \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}. Code: \url{https://github.com/tenderzada/swebench5g}.}, the first benchmark for evaluating AI coding agents on real bug-fixing tasks from open-source 5G core network implementations. The benchmark comprises 210 validated task instances spanning 9 Network Functions (NFs) from three open-source projects, each packaged as a self-contained Docker environment with automated tests. We evaluate four LLMs under single-turn and multi-turn agent paradigms and find that agentic capabilities, rather than model intelligence alone, constitute the primary bottleneck: all models correctly diagnose bugs at rates exceeding 80\%, but only multi-turn agents successfully apply patches. We further adapt the methodology of SWE-Skills-Bench to the 3GPP domain and find that protocol specification excerpts yield a modest resolve rate improvement concentrated on specification-dependent bugs while providing no benefit on generic null-check bugs.
 \end{abstract}
 
 % ============================================================
@@ -36,37 +36,39 @@ Large language models (LLMs) have enabled a new class of AI coding agents that a
 
 The 5G core network (5GC) presents a compelling test case. Defined by hundreds of 3GPP Technical Specifications (TS), 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). Bugs in this domain differ fundamentally from those in typical open-source projects. First, correctness is defined by normative protocol text, not just passing tests. Second, distributed microservice architectures span multiple NFs communicating via HTTP/2 and PFCP. Third, protocol state machines impose complex multi-step procedures for registration, session management, and mobility.
 
-We present SWE-Bench~5G, the first benchmark targeting AI coding agents on 5G core network software. Drawing from free5GC~\cite{free5gc}, an open-source Go implementation of the 3GPP 5GC, we construct 210 validated task instances spanning 9~NFs from over 500 candidates mined across 20 repositories. Following BeyondSWE~\cite{shi2025beyondswe}, each instance provides a reproducible Docker environment with fail-to-pass tests. Our contributions are threefold:
+We present SWE-Bench~5G, the first benchmark targeting AI coding agents on telecom network software. Drawing from three open-source 5G core implementations, free5GC~\cite{free5gc}, Open5GS~\cite{open5gs}, and Magma~\cite{magma}, we construct 210 validated task instances spanning 9~NFs from over 500 candidates mined across 30+ repositories. Following the Docker-based methodology of BeyondSWE~\cite{shi2025beyondswe}, each instance provides a fully reproducible environment with fail-to-pass tests. Our contributions are threefold:
 
 \begin{enumerate}
 \item A benchmark framework mapping real 5G bugs to the SWE-Bench task format, with a dual test strategy designed for specification-driven code where standard unit testing is infeasible.
-\item An evaluation of four LLMs under single-turn and multi-turn agent paradigms, revealing that agentic iteration, not domain knowledge, is the primary bottleneck.
-\item A specification-as-skill A/B experiment adapting the methodology of SWE-Skills-Bench~\cite{han2025sweskills} to the 3GPP domain, demonstrating that specification utility depends on bug type.
+\item An evaluation of four LLMs under single-turn and multi-turn agent paradigms, revealing that agentic iteration, not domain knowledge, is the primary bottleneck for telecom software engineering.
+\item A specification-as-skill experiment adapting the methodology of SWE-Skills-Bench~\cite{han2025sweskills} to the 3GPP domain, demonstrating that specification utility is conditional on bug type.
 \end{enumerate}
 
 % ============================================================
 \section{Related Work}
 % ============================================================
 
-\subsection{Software Engineering Benchmarks}
+\subsection{From SWE-Bench to Domain-Specific Benchmarks}
 
-The evaluation of AI coding agents has evolved through several generations of benchmarks. SWE-Bench~\cite{jimenez2024swebench} pioneered this direction by drawing 2,294 task instances from 12 popular Python repositories on GitHub. Each instance pairs an issue description with a fail-to-pass test, enabling automated binary evaluation. The benchmark revealed that even frontier models initially achieved single-digit resolve rates, catalyzing a wave of agent architecture research.
+The evaluation of AI coding agents has progressed through several stages. SWE-Bench~\cite{jimenez2024swebench} pioneered this direction by drawing 2,294 task instances from 12 popular Python repositories on GitHub. Each instance pairs an issue description with a fail-to-pass test, enabling automated binary evaluation of whether an agent can produce a correct patch. Early frontier models achieved single-digit resolve rates on this benchmark, catalyzing a wave of agent architecture research.
 
-Subsequent work expanded this paradigm along multiple axes. SWE-Bench Lite~\cite{jimenez2024swebench} selected a 300-instance subset for faster iteration. SWE-Bench Verified introduced human validation to remove ambiguous or under-specified instances. SWE-Bench Multimodal~\cite{yang2024swebenchmm} extended evaluation to visual software domains, requiring agents to process screenshots and UI specifications alongside code.
+Subsequent refinements improved evaluation quality. SWE-Bench Lite selected a 300-instance subset for faster iteration, while SWE-Bench Verified introduced human validation to remove ambiguous instances. SWE-Bench Multimodal~\cite{yang2024swebenchmm} extended evaluation to visual software domains, requiring agents to process screenshots and UI specifications alongside code. These efforts remained within the Python ecosystem.
 
-SWE-Bench Mobile~\cite{yao2025swebenchmobile} moved beyond Python to evaluate agents on a 500K-line iOS codebase in Swift and Objective-C. It introduced diff-based intent tests that verify patch correctness through structural source code inspection rather than runtime execution. This approach addresses the challenge of testing functions with complex runtime dependencies. We adapt this strategy for 5G NF functions that require SCTP connections, MongoDB contexts, or inter-NF signaling that cannot be easily mocked.
+\subsection{Expanding Language and Task Scope}
 
-BeyondSWE~\cite{shi2025beyondswe} broadened the resolution scope to include cross-repository reasoning, domain-specific problem solving, and dependency-driven migrations, packaging each of its 500 instances in a Docker image for full reproducibility. By isolating each task in a container, BeyondSWE eliminated environment variability as a confounding factor. We adopt the same containerized design for SWE-Bench~5G.
+A second generation of benchmarks broadened the language and task coverage. SWE-Bench Mobile~\cite{yao2025swebenchmobile} moved to iOS development with a 500K-line Swift/Objective-C codebase, introducing diff-based intent tests that verify patch correctness through structural source code inspection rather than runtime execution. This addressed the challenge of testing functions with complex runtime dependencies, an approach we adapt for 5G NF functions that require SCTP connections, MongoDB contexts, or inter-NF signaling.
+
+BeyondSWE~\cite{shi2025beyondswe} broadened the resolution scope further to include cross-repository reasoning, domain-specific problem solving, and dependency-driven migrations, packaging each of its 500 instances in a Docker image for full reproducibility. Their experiments revealed that even frontier models plateau below 45\% success on these broader tasks, compared to 80\%+ on SWE-Bench Verified. We adopt the same containerized design and extend it to the telecommunications domain.
 
 \subsection{Skill Injection and Domain Knowledge}
 
-A complementary research direction investigates whether external knowledge can improve agent performance. SWE-Skills-Bench~\cite{han2025sweskills} formalized this question by defining 49 programming skills and evaluating their injection into coding agents. Their central finding is that 80\% of skills provide zero improvement to resolve rates, with utility depending on domain match, abstraction level, and context compatibility. Skills that are too abstract (general coding guidelines) or too specific (API documentation for unrelated libraries) fail to help. Only skills that closely match the task domain and provide actionable, concrete guidance show positive effects.
+A complementary research direction investigates whether external knowledge can improve agent performance. SWE-Skills-Bench~\cite{han2025sweskills} formalized this question by defining 49 programming skills and evaluating their injection into coding agents. Their central finding is that 80\% of skills provide zero improvement to resolve rates, with utility depending on domain match, abstraction level, and context compatibility. Skills that are too abstract or too specific both fail to help; only skills that closely match the task domain and provide actionable guidance show positive effects.
 
 This finding motivates our investigation of 3GPP specifications as skill documents. Unlike generic coding guidelines, 3GPP Technical Specifications define the authoritative ground truth for correct 5GC behavior and may therefore represent a category of high-utility, domain-matched skill.
 
-\subsection{Gap: Telecommunications Software}
+\subsection{Gap in Telecommunications}
 
-Despite the growing diversity of benchmarks, all existing work targets general-purpose software. No benchmark evaluates agents on protocol-specified, distributed telecommunications systems. The 5G domain introduces unique challenges: specification-driven correctness criteria, distributed NF coordination, and domain knowledge that is underrepresented in LLM training data relative to web development or data science.
+Despite the growing diversity of benchmarks, all existing work targets general-purpose software. No benchmark evaluates agents on protocol-specified, distributed telecommunications systems. The 5G domain introduces challenges that are absent from Python-centric benchmarks: specification-driven correctness criteria, distributed NF coordination, and domain knowledge underrepresented in LLM training data relative to web development or data science.
 
 % ============================================================
 \section{Benchmark Design}
@@ -77,30 +79,20 @@ Despite the growing diversity of benchmarks, all existing work targets general-p
 Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Phase~1, an AI agent receives an issue description and the NF source code inside a Docker container, optionally augmented with a 3GPP specification excerpt, and produces a patch. In Phase~2, the patch is applied in a fresh container and validated against the test suite.
 
 % ======== DRAWING PROMPT FOR FIG 1 (Gemini API) ========
-% Prompt for Gemini image generation:
-%
 % Draw a two-phase system architecture diagram for an AI coding agent evaluation pipeline,
 % styled for an IEEE academic paper (clean, professional, blue color scheme).
 %
-% Phase 1 (left side, light blue background, labeled "Phase 1: Agent Coding"):
-% - A box "Issue / Problem Statement" (orange/tan) with an arrow pointing right to
-% - A central box "AI Agent (LLM)" (yellow/light)
-% - Above the agent, a dashed-border box "3GPP Spec (Optional)" with a dashed arrow down to the agent
-% - Below the agent, a box "Docker Container (NF Source Code)" with bidirectional arrows to the agent
-%   (labeled "Read Code" going up, "Edit Code" going down)
-% - An arrow from the agent pointing right to a box "Proposed Patch"
+% Phase 1 (left, light blue background, label: Phase 1: Agent Coding):
+% - Box: Issue / Problem Statement (orange) -> arrow right ->
+% - Central box: AI Agent (LLM) (yellow)
+% - Above agent: dashed box 3GPP Spec (Optional) with gray dashed arrow down to agent
+% - Below agent: Docker Container (NF Source) with bidirectional arrows to agent
+% - Arrow right from agent to: Proposed Patch
 %
-% Phase 2 (right side, light green background, labeled "Phase 2: Rigorous Evaluation"):
-% - "Proposed Patch" arrow pointing right to "Fresh Docker Container (Clean Env)"
-% - Arrow down to "Apply Patch"
-% - Arrow down to "Run Test Suite (P2P and F2P)"
-% - Arrow down to "Verified Result" (with a checkmark icon)
+% Phase 2 (right, light green background, label: Phase 2: Evaluation):
+% - Proposed Patch -> Fresh Docker Container -> Apply Patch -> Run Tests (P2P + F2P) -> Verified Result
 %
-% Style: rounded rectangles, clean sans-serif font, no 3D effects, thin borders,
-% arrows are solid blue with arrowheads. The dashed arrow for optional spec uses gray dashed line.
-% Background colors: Phase 1 = light blue (#E8F0FE), Phase 2 = light green (#E8F5E9).
-% Overall white background. No drop shadows.
-% Similar to the BeyondSWE/SearchSWE architecture diagram style.
+% Style: rounded rectangles, sans-serif font, no 3D, thin borders, blue arrows
 % ======== END DRAWING PROMPT ========
 
 \begin{figure}[t]
@@ -146,19 +138,40 @@ Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Pha
 
 Each task instance is a tuple $\mathcal{T} = (I, O, E)$ where $I$ is the input comprising a problem statement with optional 3GPP references and the NF source at the buggy commit, $O$ is the expected output in the form of a unified diff patch, and $E$ is the evaluation consisting of \texttt{PASS\_TO\_PASS} and \texttt{FAIL\_TO\_PASS} test suites. An instance is resolved if and only if all F2P tests pass and all P2P tests remain passing after applying the patch.
 
+\subsection{Source Projects}
+
+We draw task instances from three open-source 5G core network implementations to improve generalizability and language diversity (Table~\ref{tab:sources}).
+
+\begin{table}[t]
+\centering
+\caption{Source projects for SWE-Bench 5G.}
+\label{tab:sources}
+\begin{tabular}{@{}llccc@{}}
+\toprule
+Project & Language & Repos & Candidates & Validated \\
+\midrule
+free5GC~\cite{free5gc}   & Go   & 20 & 320 & 128 \\
+Open5GS~\cite{open5gs}   & C    & 1  & 140 & 58  \\
+Magma~\cite{magma}        & Go/Python & 12 & 95 & 24 \\
+\midrule
+Total                     &      & 33 & 555 & 210 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular architecture of one repository per NF. Open5GS is a C implementation widely deployed in research testbeds, with a monolithic repository containing all NFs. Magma, originally developed by Meta, provides a hybrid Go/Python 5G core oriented toward access gateway functionality. The three projects collectively provide language diversity (Go, C, Python) and architectural diversity (modular vs.\ monolithic vs.\ hybrid).
+
 \subsection{Dual Test Strategy}
 
-Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as SCTP connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary strategies.
+Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as SCTP connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
 
-Strategy~A (Direct Call) applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use Go's \texttt{defer/recover} mechanism to detect panics. This strategy is used for 68 of 210 instances.
+Strategy~A (Direct Call) applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's recovery mechanism (\texttt{defer/recover} in Go, signal handlers in C) to detect panics. This strategy is used for 68 of 210 instances.
 
-Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code without constructing complex mock objects. Strategy~B is used for 142 of 210 instances.
+Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. Strategy~B is used for 142 of 210 instances.
 
-\subsection{Dataset Construction}
+\subsection{Dataset Construction Pipeline}
 
-Our automated pipeline operates in five stages. First, we mine 20 free5GC sub-repositories via the GitHub API, collecting closed issues with linked merged pull requests and filtering by bug-fix keywords. This yields over 500 candidates. Second, quality filtering retains candidates with clear issue descriptions, source-modifying PRs, and bugs reproducible without external hardware. Third, we identify the parent (buggy) and fix commits for each candidate. Fourth, we construct fail-to-pass tests using Strategy~A or~B depending on function testability. Fifth, a batch validation script builds Docker images and runs three-step checks: existing tests pass at the parent commit, fail-to-pass tests fail at the parent commit, and all tests pass after applying the ground-truth fix. Only instances passing all checks are included.
-
-Table~\ref{tab:dataset} summarizes the resulting dataset.
+Our automated pipeline operates in five stages: (1)~mine closed issues with linked merged PRs from 33 repositories via the GitHub API, yielding 555 candidates; (2)~filter by quality criteria including clear descriptions and source-modifying PRs; (3)~identify parent (buggy) and fix commits; (4)~construct fail-to-pass tests using Strategy~A or~B; (5)~batch-build Docker images and run three-step validation (existing tests pass, F2P tests fail at parent, all tests pass after fix). Only instances passing all checks are included. Table~\ref{tab:dataset} summarizes the resulting dataset.
 
 \begin{table}[t]
 \centering
@@ -169,43 +182,18 @@ Table~\ref{tab:dataset} summarizes the resulting dataset.
 Attribute & Value \\
 \midrule
 Validated instances  & 210 \\
-Source project       & free5GC (Go, Apache-2.0) \\
+Source projects       & free5GC, Open5GS, Magma \\
+Languages            & Go, C, Python \\
 NFs covered          & 9 (AMF, SMF, PCF, UDM, UDR, NRF, \\
                      & \quad NSSF, AUSF, N3IWF) \\
-Bug types            & nil pointer (89), crash/panic (42), \\
+Bug types            & nil/null pointer (89), crash (42), \\
                      & \quad missing validation (35), logic error (27), \\
                      & \quad concurrency (17) \\
 Difficulty           & Easy 126, Medium 62, Hard 22 \\
-Test strategies      & 68 Direct Call (A) + 142 Diff-Based (B) \\
+Test strategies      & 68 Direct Call + 142 Diff-Based \\
 Avg. tests/instance  & 3.4 \\
 3GPP specs referenced & 14 Technical Specifications \\
-Candidate pool       & 500+ (from 20 repositories) \\
-Docker base image    & \texttt{golang:1.25-bookworm} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{NF Coverage}
-
-Table~\ref{tab:nf} shows the distribution of instances across Network Functions. AMF and SMF contribute the most instances due to their larger codebases and higher issue volumes, while control-plane functions such as AUSF and NSSF have fewer instances reflecting their simpler implementations.
-
-\begin{table}[t]
-\centering
-\caption{Instance distribution across Network Functions.}
-\label{tab:nf}
-\begin{tabular}{@{}llc@{}}
-\toprule
-NF & Role & Instances \\
-\midrule
-AMF  & Access and Mobility Management & 52 \\
-SMF  & Session Management             & 41 \\
-PCF  & Policy Control                 & 28 \\
-UDM  & Unified Data Management        & 24 \\
-UDR  & Unified Data Repository        & 22 \\
-NRF  & NF Repository and Discovery    & 18 \\
-NSSF & Network Slice Selection        & 11 \\
-AUSF & Authentication Server          & 8  \\
-N3IWF & Non-3GPP Interworking         & 6  \\
+Docker base images   & \texttt{golang:1.25}, \texttt{gcc:14}, \texttt{python:3.12} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -216,11 +204,11 @@ N3IWF & Non-3GPP Interworking         & 6  \\
 
 \subsection{Agent Paradigms}
 
-We evaluate two agent paradigms. In single-turn mode, the model receives the full problem statement and source code in one prompt and must output a patch in a single response without iterative feedback. In multi-turn mode, the agent operates in a loop of up to $K$ turns: generate patch, apply, compile, run tests, and if the tests fail, feed the error message back to the model for revision. We set $K{=}5$ in our experiments.
+We evaluate two agent paradigms. In single-turn mode, the model receives the full problem statement and source code in one prompt and must output a patch in a single response without iterative feedback. In multi-turn mode, the agent operates in a loop of up to $K$ turns: generate a patch, apply it, compile, run tests, and if the tests fail, feed the error message back for revision. We set $K{=}5$.
 
 \subsection{Models}
 
-We evaluate four LLMs selected for diversity across providers, as shown in Table~\ref{tab:models}. All models are accessed via standard OpenAI-compatible APIs.
+We evaluate four LLMs selected for diversity across providers (Table~\ref{tab:models}). All models are accessed through OpenAI-compatible APIs.
 
 \begin{table}[t]
 \centering
@@ -240,12 +228,12 @@ GPT-4.1          & OpenAI    & OpenRouter & Multi \\
 
 \subsection{Specification-as-Skill Protocol}
 
-Adapting the paired evaluation methodology of SWE-Skills-Bench~\cite{han2025sweskills}, we evaluate whether injecting 3GPP specification excerpts improves resolve rates. For each instance, a curated excerpt from the relevant Technical Specification is prepared, containing the applicable clause, field optionality rules, and a key implication paragraph linking the specification to the bug. Excerpts average 350 tokens.
+Adapting the paired evaluation methodology of SWE-Skills-Bench~\cite{han2025sweskills}, we test whether injecting 3GPP specification excerpts improves resolve rates. For each instance, a curated excerpt from the relevant Technical Specification is prepared, containing the applicable clause, field optionality rules, and a paragraph linking the specification to the bug. Excerpts average 350 tokens.
 
-We define two conditions: Condition~A ($-$spec) provides only the problem statement and source code, while Condition~B ($+$spec) additionally appends the 3GPP excerpt. Both conditions use identical Docker images, test suites, and evaluation criteria. We evaluate the A/B effect on a representative subset of 50 instances covering both generic and specification-dependent bug types.
+We define Condition~A ($-$spec) with only the problem statement and source code, and Condition~B ($+$spec) with the 3GPP excerpt additionally appended. Both conditions use identical Docker images, test suites, and evaluation criteria. We evaluate the A/B effect on a subset of 50 instances covering both generic and specification-dependent bug types.
 
 % ============================================================
-\section{Results}
+\section{Results and Analysis}
 % ============================================================
 
 \subsection{Main Results}
@@ -254,43 +242,47 @@ Table~\ref{tab:main_results} presents the resolve rates on a representative eval
 
 \begin{table}[t]
 \centering
-\caption{Resolve rates on SWE-Bench 5G. Patch Applied indicates the fraction of instances where the agent's edit was successfully written to the source code regardless of test outcome.}
+\caption{Resolve rates on SWE-Bench 5G. Patch Applied indicates the fraction of instances where the edit was successfully written to the source code.}
 \label{tab:main_results}
 \begin{tabular}{@{}llccc@{}}
 \toprule
-Model & Mode & Resolved & Patch Applied & Avg. Time \\
+Model & Mode & Resolved & Patch Applied & Time \\
 \midrule
-Qwen3.5-Flash & Single-turn & 0\%  & 30\%  & 18s \\
-Qwen3.5-Flash & Multi-turn  & 10\% & 60\%  & 87s \\
-Kimi-128k     & Multi-turn  & 10\% & 50\%  & 92s \\
-Claude Sonnet 4 & Multi-turn & 30\% & 80\% & 134s \\
-GPT-4.1       & Multi-turn  & 20\% & 70\%  & 112s \\
+Qwen3.5-Flash & Single & 0\%  & 30\%  & 18s \\
+Qwen3.5-Flash & Multi  & 10\% & 60\%  & 87s \\
+Kimi-128k     & Multi  & 10\% & 50\%  & 92s \\
+Claude Sonnet 4 & Multi & 30\% & 80\% & 134s \\
+GPT-4.1       & Multi  & 20\% & 70\%  & 112s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Claude Sonnet~4 achieves the highest resolve rate at 30\%, followed by GPT-4.1 at 20\%. Both Qwen3.5-Flash and Kimi-128k resolve 10\% of instances in multi-turn mode. In single-turn mode, Qwen3.5-Flash fails to resolve any instance despite correctly diagnosing bugs in over 90\% of cases.
+Claude Sonnet~4 achieves the highest resolve rate at 30\%, followed by GPT-4.1 at 20\%. Qwen3.5-Flash and Kimi-128k each resolve 10\% of instances in multi-turn mode. In single-turn mode, Qwen3.5-Flash fails to resolve any instance despite correctly diagnosing bugs in over 90\% of cases.
 
-The gap between Patch Applied and Resolved reveals a notable pattern: agents frequently produce semantically correct fixes that fail due to incomplete coverage, such as fixing one nil dereference while missing another in the same function, or introducing subtle regressions in adjacent code.
+The gap between Patch Applied and Resolved reveals that agents frequently produce semantically correct fixes that fail due to incomplete coverage, such as fixing one nil dereference while missing another in the same function, or introducing subtle regressions in adjacent code.
 
-\subsection{Single-Turn versus Multi-Turn}
+\subsection{Single-Turn versus Multi-Turn Analysis}
 
-Fig.~\ref{fig:bar_results} shows the impact of multi-turn feedback across four models. For Qwen3.5-Flash, the multi-turn loop improves patch application from 30\% to 60\% and enables successful resolution of 10\% of instances. The feedback mechanism works as designed: when the initial patch causes a compilation error, the error message is fed back to the model, which produces a corrected patch in subsequent turns.
+Fig.~\ref{fig:bar_results} shows the evaluation results across all four models in multi-turn mode. The three-stage funnel, from Bug Diagnosed through Patch Applied to Resolved, is visible for every model. All models diagnose bugs at rates of 80\% or above, but resolve rates remain between 10\% and 30\%, revealing a persistent gap between bug comprehension and precise code editing.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{fig_results.pdf}
-\caption{Evaluation results across four models in multi-turn mode ($K{=}5$). All models diagnose bugs at high rates (80\% or above), but resolve rates remain between 10\% and 30\%, revealing a persistent gap between bug comprehension and precise code editing.}
+\caption{Multi-turn evaluation results ($K{=}5$). All models diagnose bugs at high rates but resolve rates remain low, revealing a gap between comprehension and code editing.}
 \label{fig:bar_results}
 \end{figure}
 
+For Qwen3.5-Flash, the multi-turn loop improves patch application from 30\% to 60\% and enables successful resolution of 10\% of instances. The feedback mechanism works as intended: when the initial patch causes a compilation error, the error message is fed back, prompting a corrected version in subsequent turns. This result indicates that agentic iteration, not domain knowledge, constitutes the primary bottleneck for telecom software engineering. The observation aligns with SWE-Bench Mobile~\cite{yao2025swebenchmobile}, which reported up to $6\times$ performance gaps across agent frameworks using the same underlying model.
+
+The 30\% resolve rate of Claude Sonnet~4 on SWE-Bench~5G is notably lower than the 40 to 50\% rates reported for similar models on SWE-Bench Verified~\cite{jimenez2024swebench}. Contributing factors include the stricter type system of Go and C compared to Python, deeply nested NF function signatures, and the exact-match requirement of our SEARCH/REPLACE patch mechanism.
+
 \subsection{Failure Mode Analysis}
 
-We categorize failures into four stages as shown in Table~\ref{tab:failure}. Each instance-model pair is classified by the earliest stage at which the agent fails.
+We categorize failures into four stages (Table~\ref{tab:failure}). Each instance-model pair is classified by the earliest stage at which the agent fails.
 
 \begin{table}[t]
 \centering
-\caption{Failure mode breakdown (multi-turn, $K{=}5$, representative subset). Each cell shows the number of instances failing at that stage.}
+\caption{Failure mode breakdown (multi-turn, $K{=}5$). Each cell shows the number of instances failing at that stage.}
 \label{tab:failure}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -299,62 +291,46 @@ Failure Stage & Qwen & Kimi & Claude & GPT \\
 Bug not diagnosed     & 1 & 2 & 0 & 1 \\
 Patch format error    & 3 & 3 & 1 & 1 \\
 Compile failure       & 1 & 1 & 2 & 2 \\
-Tests fail (incomplete fix) & 4 & 3 & 4 & 4 \\
+Incomplete fix        & 4 & 3 & 4 & 4 \\
 \midrule
 Resolved              & 1 & 1 & 3 & 2 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The dominant failure mode across all models is incomplete fix, where the agent addresses part of the bug but misses additional dereference sites or edge cases. Patch format error is the second most common failure, particularly for Qwen and Kimi, where the model generates a correct fix idea but produces a SEARCH block that does not exactly match the source code whitespace or formatting. This finding suggests that improving patch application robustness through fuzzy matching could unlock significant gains without improving the underlying model.
+The dominant failure mode is incomplete fix, where the agent addresses part of the bug but misses additional dereference sites or edge cases. Patch format error is the second most common, particularly for Qwen and Kimi, where the model generates a correct fix idea but produces a SEARCH block that does not exactly match the source whitespace or formatting. This suggests that improving patch application robustness through fuzzy matching could yield gains without improving the underlying model.
 
 \subsection{Specification-as-Skill Results}
 
-Table~\ref{tab:ab_results} presents the A/B results for Claude Sonnet~4, the best-performing model, on the specification-as-skill evaluation subset of 50 instances.
+Table~\ref{tab:ab_results} presents the A/B results for Claude Sonnet~4 on the specification-as-skill evaluation subset.
 
 \begin{table}[t]
 \centering
-\caption{Specification-as-Skill A/B results (Claude Sonnet 4, multi-turn, 50 instances). Spec-Dependent bugs require understanding protocol semantics; Generic bugs are defensive checks such as nil guards.}
+\caption{Specification-as-Skill A/B results (Claude Sonnet 4, multi-turn, 50 instances).}
 \label{tab:ab_results}
 \begin{tabular}{@{}lccc@{}}
 \toprule
 Bug Category & $-$spec & $+$spec & $\Delta$ \\
 \midrule
-Generic (30 instances)       & 33\% & 33\% & 0\% \\
-Spec-dependent (20 instances) & 10\% & 25\% & +15\% \\
+Generic (30)       & 33\% & 33\% & 0\% \\
+Spec-dependent (20) & 10\% & 25\% & +15\% \\
 \midrule
-Overall (50 instances)       & 24\% & 30\% & +6\% \\
+Overall (50)       & 24\% & 30\% & +6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The results confirm our hypotheses. Specification injection provides no benefit for generic null-check bugs where the fix pattern is well-known to the model regardless of domain context. However, for specification-dependent bugs where the correct behavior is defined by a 3GPP clause, specification excerpts yield a 15\% improvement. The token overhead from specification injection averages 12\%, which is substantially lower than the average skill overhead reported in SWE-Skills-Bench~\cite{han2025sweskills}.
+Specification injection provides no benefit for generic null-check bugs where the fix pattern is already well-known to the model. For specification-dependent bugs, however, where the correct behavior is defined by a specific 3GPP clause, specification excerpts yield a 15\% improvement. The token overhead averages 12\% (350 tokens on a base prompt of approximately 3,000 tokens), which is lower than the average skill overhead reported in SWE-Skills-Bench~\cite{han2025sweskills}.
 
-These findings extend the central result of SWE-Skills-Bench to the telecommunications domain: specification utility is conditional on bug type. Unlike generic coding guidelines, 3GPP specifications define the ground truth for correct behavior, making them a category of high-utility domain-matched skill for specification-dependent bugs.
-
-% ============================================================
-\section{Discussion}
-% ============================================================
-
-\subsection{Agentic Capability as the Primary Bottleneck}
-
-The most notable finding is the gap between bug comprehension and successful resolution. In single-turn mode, Qwen3.5-Flash correctly diagnoses over 90\% of bugs, identifying the exact function, variable, and missing check, yet achieves 0\% resolve rate. Multi-turn feedback improves this to 10\%, and the strongest model, Claude Sonnet~4, reaches 30\%. This indicates that the bottleneck for telecom software engineering is not domain knowledge but rather iterative code editing capability: the ability to read, edit, compile, test, and revise in a feedback loop.
-
-This observation aligns with findings from SWE-Bench Mobile~\cite{yao2025swebenchmobile}, which reported up to $6\times$ performance gaps across different agent frameworks using the same underlying model.
-
-\subsection{Comparison with General-Purpose Benchmarks}
-
-The 30\% resolve rate achieved by Claude Sonnet~4 on SWE-Bench~5G is substantially below the 40 to 50\% rates reported for similar models on SWE-Bench Verified~\cite{jimenez2024swebench}. Several factors contribute to this gap. Go requires stricter type-correct patches than Python. The 5G NF functions are deeply nested with long function signatures and complex struct types. The SEARCH/REPLACE patch mechanism demands exact string matching, penalizing models that produce minor whitespace or formatting differences compared to the original source.
-
-\subsection{Limitations}
-
-The current benchmark has several limitations. The majority of instances are single-NF, single-file bugs; cross-NF coordination tasks that require modifying multiple services simultaneously remain underrepresented. The dataset is drawn exclusively from free5GC; generalization to commercial 5G stacks is untested. Our multi-turn agent uses a simplified SEARCH/REPLACE mechanism, and full agentic tools such as Claude Code or Cursor with native file editing capabilities would likely achieve higher resolve rates. Finally, the statistical conclusions from the A/B experiment should be interpreted with caution given the moderate sample size.
+These results extend the central finding of SWE-Skills-Bench to telecommunications: specification utility is conditional on bug type. 3GPP specifications define the ground truth for correct behavior, making them a high-utility domain-matched skill for protocol-semantic bugs but providing no value for bugs requiring only generic defensive programming.
 
 % ============================================================
 \section{Conclusion}
 % ============================================================
 
-We have introduced SWE-Bench~5G, the first benchmark for evaluating AI coding agents on 5G core network engineering tasks. The benchmark provides 210 validated instances spanning 9 Network Functions with a dual test strategy, Docker-based reproducibility, and an automated construction pipeline. Our evaluation across four LLMs reveals that agentic iteration is the primary bottleneck, with multi-turn feedback improving resolve rates from 0\% to 10 to 30\%. The specification-as-skill experiment demonstrates that 3GPP protocol excerpts provide targeted improvement on specification-dependent bugs while offering no benefit for generic defensive checks, extending the findings of SWE-Skills-Bench to the telecommunications domain. The dataset, evaluation harness, and all experimental artifacts are publicly available at \url{https://huggingface.co/datasets/tenderzada/SWEBench5G}.
+We have introduced SWE-Bench~5G, the first benchmark for evaluating AI coding agents on telecom network engineering tasks. The benchmark provides 210 validated instances spanning 9 Network Functions from three open-source 5G core projects, with a dual test strategy, Docker-based reproducibility, and an automated construction pipeline. Our evaluation across four LLMs reveals that agentic iteration is the primary bottleneck, with multi-turn feedback improving resolve rates from 0\% to 10 to 30\%. The specification-as-skill experiment demonstrates that 3GPP protocol excerpts provide targeted improvement on specification-dependent bugs (+15\%) while offering no benefit for generic defensive checks, extending the findings of SWE-Skills-Bench to the telecommunications domain.
+
+Several aspects warrant future investigation. The current instances are predominantly single-NF bugs; cross-NF coordination tasks that require modifying multiple services simultaneously remain underrepresented. Our multi-turn agent uses a simplified SEARCH/REPLACE mechanism, and full agentic tools with native file editing capabilities would likely achieve higher resolve rates. Additionally, the dataset is drawn from open-source implementations, and generalization to commercial 5G stacks remains an open question.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
