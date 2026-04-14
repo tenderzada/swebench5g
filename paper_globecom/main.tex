@@ -56,6 +56,13 @@ The evaluation of AI coding agents has progressed through several stages. SWE-Be
 
 Subsequent refinements improved evaluation quality. SWE-Bench Lite selected a 300-instance subset for faster iteration, while SWE-Bench Verified introduced human validation to remove ambiguous instances. SWE-Bench Multimodal~\cite{yang2024swebenchmm} extended evaluation to visual software domains, requiring agents to process screenshots and UI specifications alongside code. These efforts remained within the Python ecosystem.
 
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.8\textwidth]{framework.png}
+\caption{SWE-Bench 5G evaluation pipeline. In Phase~1 the agent reads the issue and NF source code, optionally augmented with a 3GPP specification excerpt, and produces a patch. In Phase~2 the patch is applied in a fresh container and validated against pass-to-pass (P2P) and fail-to-pass (F2P) tests.}
+\label{fig:overview}
+\end{figure*}
+
 \subsection{Expanding Language and Task Scope}
 
 A second generation of benchmarks broadened the language and task coverage. SWE-Bench Mobile~\cite{yao2025swebenchmobile} moved to iOS development with a 500K-line Swift/Objective-C codebase, introducing diff-based intent tests that verify patch correctness through structural source code inspection rather than runtime execution. This addressed the challenge of testing functions with complex runtime dependencies, an approach we adapt for 5G NF functions that require SCTP connections, MongoDB contexts, or inter-NF signaling.
@@ -103,20 +110,13 @@ Fig.~\ref{fig:overview} illustrates the SWE-Bench~5G evaluation pipeline. In Pha
 % \end{tikzpicture}
 % \end{figure}
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{framework.png}
-\caption{SWE-Bench 5G evaluation pipeline. In Phase~1 the agent reads the issue and NF source code, optionally augmented with a 3GPP specification excerpt, and produces a patch. In Phase~2 the patch is applied in a fresh container and validated against pass-to-pass (P2P) and fail-to-pass (F2P) tests.}
-\label{fig:overview}
-\end{figure*}
-
 \subsection{Task Formulation}
 
 Each task instance is a tuple $\mathcal{T} = (I, O, E)$ where $I$ is the input comprising a problem statement with optional 3GPP references and the NF source at the buggy commit, $O$ is the expected output in the form of a unified diff patch, and $E$ is the evaluation consisting of \texttt{PASS\_TO\_PASS} and \texttt{FAIL\_TO\_PASS} test suites. An instance is resolved if and only if all F2P tests pass and all P2P tests remain passing after applying the patch.
 
 \subsection{Source Projects}
 
-We draw task instances from three open-source 5G core network implementations to improve generalizability and language diversity (Table~\ref{tab:sources}).
+We draw task instances from three open-source 5G core network implementations, summarized in Table~\ref{tab:sources}, to improve generalizability and language diversity.
 
 \begin{table}[t]
 \centering
@@ -135,13 +135,13 @@ Total                     &      & 33 & 555 & 210 \\
 \end{tabular}
 \end{table}
 
-free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular architecture of one repository per NF. Open5GS is a C implementation widely deployed in research testbeds, with a monolithic repository containing all NFs. Magma, originally developed by Meta, provides a hybrid Go/Python 5G core oriented toward access gateway functionality. The three projects collectively provide language diversity (Go, C, Python) and architectural diversity (modular vs.\ monolithic vs.\ hybrid).
+free5GC is a Go implementation of the 3GPP Release~15+ 5GC with a modular architecture of one repository per NF. Open5GS is a C implementation widely deployed in research testbeds, with a monolithic repository containing all NFs. Magma, originally developed by Meta, provides a hybrid Go/Python 5G core oriented toward access gateway functionality. The three projects collectively provide language diversity across Go, C, and Python, as well as architectural diversity ranging from modular to monolithic designs.
 
 \subsection{Dual Test Strategy}
 
 Many 5G NF functions cannot be unit-tested directly due to complex runtime dependencies such as SCTP connections, MongoDB sessions, and inter-NF signaling. We therefore employ two complementary test strategies.
 
-Strategy~A (Direct Call) applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's recovery mechanism (\texttt{defer/recover} in Go, signal handlers in C) to detect panics. Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
+Strategy~A, Direct Call, applies when the buggy function accepts simple arguments. We call it directly with crash-triggering inputs and use the language's native recovery mechanism, such as \texttt{defer/recover} in Go and signal handlers in C, to detect panics. Strategy~B (Diff-Based Intent), inspired by SWE-Bench Mobile~\cite{yao2025swebenchmobile}, verifies that the source code contains the expected fix pattern, for example checking that a nil guard exists before a pointer dereference. This forces agents to modify the source code while avoiding the construction of complex mock objects. The distribution of strategies across instances is detailed in Table~\ref{tab:dataset}.
 
 \subsection{Dataset Construction Pipeline}
 
@@ -182,7 +182,7 @@ We evaluate two agent paradigms. In single-turn mode, the model receives the ful
 
 \subsection{Models}
 
-We evaluate four LLMs selected for diversity across providers (Table~\ref{tab:models}). All models are accessed through OpenAI-compatible APIs.
+We evaluate four LLMs selected for diversity across providers, as listed in Table~\ref{tab:models}. All models are accessed through OpenAI-compatible APIs.
 
 \begin{table}[t]
 \centering
@@ -234,7 +234,7 @@ Claude Sonnet 4 & \textbf{38.2} & \textbf{28.6} & \textbf{25.7} & \textbf{18.5} 
 
 Claude Sonnet~4 achieves the highest average resolve rate at 30.0\%, followed by GPT-4.1 at 20.0\%. Qwen3.5-Flash and Kimi-128k each resolve approximately 10\% of instances in multi-turn mode. In single-turn mode ($^\dagger$), Qwen3.5-Flash resolves zero instances despite correctly diagnosing bugs in over 90\% of cases, illustrating the critical role of iterative feedback. Patch application rates (edits successfully written to source, regardless of test outcome) reach 79.5\% for Claude Sonnet~4, 67.1\% for GPT-4.1, 57.1\% for Qwen3.5-Flash, and 51.4\% for Kimi-128k, indicating that the gap between applying a patch and passing tests remains substantial.
 
-Performance varies across bug categories. Nil/null pointer bugs yield the highest resolve rates across all models, as these often require inserting a single guard check. Kimi-128k notably outperforms Qwen3.5-Flash on missing validation bugs (11.4\% vs.\ 8.6\%), suggesting that its longer context window helps with specification-dependent fixes. Concurrency bugs are the most challenging category, with even Claude Sonnet~4 resolving only 17.6\%.
+Performance varies across bug categories. Nil/null pointer bugs yield the highest resolve rates across all models, as these often require inserting a single guard check. Kimi-128k notably outperforms Qwen3.5-Flash on missing validation bugs, achieving 11.4\% compared to 8.6\%, suggesting that its longer context window helps with specification-dependent fixes. Concurrency bugs are the most challenging category, with even Claude Sonnet~4 resolving only 17.6\%.
 
 \subsection{Single-Turn versus Multi-Turn Analysis}
 
@@ -247,7 +247,7 @@ Fig.~\ref{fig:bar_results} shows the evaluation results across all four models i
 \label{fig:bar_results}
 \end{figure}
 
-For Qwen3.5-Flash, the multi-turn loop improves patch application from 28.6\% (single-turn) to 57.1\% and enables successful resolution of 10.0\% of instances. The feedback mechanism works as intended: when the initial patch causes a compilation error, the error message is fed back, prompting a corrected version in subsequent turns. This result indicates that agentic iteration, not domain knowledge, constitutes the primary bottleneck for telecom software engineering.
+For Qwen3.5-Flash, the multi-turn loop improves patch application from 28.6\% in single-turn mode to 57.1\% and enables successful resolution of 10.0\% of instances. The feedback mechanism works as intended: when the initial patch causes a compilation error, the error message is fed back, prompting a corrected version in subsequent turns. This result indicates that agentic iteration, not domain knowledge, constitutes the primary bottleneck for telecom software engineering.
 
 The 30\% resolve rate of Claude Sonnet~4 on SWE-Bench~5G is notably lower than the rates reported for similar models on general-purpose benchmarks. Contributing factors include the stricter type system of Go and C compared to Python, deeply nested NF function signatures, and the exact-match requirement of our SEARCH/REPLACE patch mechanism.
 
@@ -273,11 +273,11 @@ Resolved              & 21 & 21 & 63 & 42 \\
 \end{tabular}
 \end{table}
 
-The dominant failure mode across all models is incomplete fix (100 to 116 instances per model), where the agent addresses part of the bug but misses additional dereference sites or edge cases. Patch format error is the second most common for Qwen (52) and Kimi (56), where the model generates a correct fix idea but produces a SEARCH block that does not exactly match the source whitespace or formatting. Claude and GPT show substantially fewer format errors (15 and 21 respectively), suggesting stronger adherence to structured output formats. This distribution indicates that improving patch application robustness through fuzzy matching could disproportionately benefit weaker models without requiring improvements to the underlying LLM.
+The dominant failure mode across all models is incomplete fix, accounting for 100 to 116 instances per model, where the agent addresses part of the bug but misses additional dereference sites or edge cases. Patch format error is the second most common for Qwen and Kimi, at 52 and 56 instances respectively, where the model generates a correct fix idea but produces a SEARCH block that does not exactly match the source whitespace or formatting. Claude and GPT show substantially fewer format errors, at 15 and 21 respectively, suggesting stronger adherence to structured output formats. This distribution indicates that improving patch application robustness through fuzzy matching could disproportionately benefit weaker models without requiring improvements to the underlying LLM.
 
 \subsection{Specification-as-Skill Results}
 
-Table~\ref{tab:ab_results} presents the specification-as-skill results. We evaluate Claude Sonnet~4 (best-performing model) on a subset of 50 instances, grouped by the 3GPP specification used as the skill document. Pass$^+$ and Pass$^-$ denote resolve rates with and without specification injection, respectively. $\Delta P$ is the skill utility delta, $C^+$ is the average token cost with specification, and $\rho$ is the token overhead ratio.
+Table~\ref{tab:ab_results} presents the specification-as-skill results. We evaluate Claude Sonnet~4, the best-performing model, on a subset of 50 instances, grouped by the 3GPP specification used as the skill document. Pass$^+$ and Pass$^-$ denote resolve rates with and without specification injection, respectively. $\Delta P$ is the skill utility delta, $C^+$ is the average token cost with specification, and $\rho$ is the token overhead ratio.
 
 \begin{table}[t]
 \centering
@@ -309,7 +309,7 @@ Overall & 50 & 30.0 & 24.0 & \textcolor{green!60!black}{+6.0} & 3.5K & +12\% \\
 \end{tabular}
 \end{table}
 
-Three specifications, TS~29.514 (Policy Authorization), TS~29.507 (Policy Control), and TS~29.512 (Session Management Policy), show positive skill utility deltas ranging from +16.7\% to +25.0\%. These correspond to bugs where the correct behavior is defined by field optionality or value range constraints in the specification. The remaining seven specifications show zero delta, covering bugs that require only generic defensive programming such as nil guards.
+Three specifications show positive skill utility deltas: TS~29.514 for Policy Authorization, TS~29.507 for Policy Control, and TS~29.512 for Session Management Policy. These deltas range from +16.7\% to +25.0\% and correspond to bugs where the correct behavior is defined by field optionality or value range constraints in the specification. The remaining seven specifications show zero delta, covering bugs that require only generic defensive programming such as nil guards.
 
 The average token overhead is 12\%, reflecting the concise nature of curated 3GPP excerpts compared to full specification documents.
 
