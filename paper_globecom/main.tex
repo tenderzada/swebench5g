@@ -80,9 +80,9 @@ AI coding agents have achieved remarkable progress on general-purpose software b
 \section{Introduction}
 % ============================================================
 
-Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench, hou2024llmse, xia2023apr}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python~\cite{wang2024testing, silva2025finetuning}. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, 5G network engineering, where code correctness is governed by hundreds of normative protocol specifications, remains entirely unexamined.
+Large language models (LLMs) have enabled a new class of AI coding agents that autonomously navigate codebases, diagnose bugs, and generate patches~\cite{jimenez2024swebench, hou2024llmse, xia2023apr, bariah2024llmtelecom}. Benchmarks such as SWE-Bench~\cite{jimenez2024swebench} and its extensions have driven rapid progress on general-purpose software, primarily Python~\cite{wang2024testing, silva2025finetuning}. However, real-world software engineering extends well beyond web applications and data science tooling. In particular, 5G network engineering, where code correctness is governed by hundreds of normative protocol specifications, remains entirely unexamined.
 
-The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP)~\cite{wang2023road6g, polese2024openran}, 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs). As highlighted in the upper-left panel of Fig.~\ref{fig:unique}, 5G software engineering introduces domain challenges absent from general SWE-Bench settings, including 3GPP-driven correctness, distributed NF interactions, and protocol-state reasoning.
+The 5G core network (5GC) is a representative example of such a domain. Defined by hundreds of Technical Specifications (TS) from the 3rd Generation Partnership Project (3GPP)~\cite{wang2023road6g, polese2024openran}, 5GC implementations translate precise protocol semantics into production code decomposed across multiple Network Functions (NFs)~\cite{huang2024microservice, cavalcanti2024tsn5g}. As highlighted in the upper-left panel of Fig.~\ref{fig:unique}, 5G software engineering introduces domain challenges absent from general SWE-Bench settings, including 3GPP-driven correctness, distributed NF interactions, and protocol-state reasoning.
 
 \begin{figure}[!t]
 \centering
@@ -327,7 +327,7 @@ Table~\ref{tab:ab_results} presents the specification-as-skill results. We evalu
 
 \begin{table}[t]
 \centering
-\caption{Specification-as-Skill evaluation (Claude Sonnet 4, multi-turn). Pass$^+$/Pass$^-$: resolve rate with/without spec. $\Delta P$: utility delta. $\rho$: token overhead. Best viewed in color.}
+\caption{Specification injection A/B results (Claude Sonnet 4).}
 \label{tab:ab_results}
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lrccrrc@{}}
